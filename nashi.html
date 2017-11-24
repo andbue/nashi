@@ -1,0 +1,321 @@
+<!DOCTYPE html> 
+<html>
+
+<head>
+
+<meta charset="utf-8"/>
+
+<title>&#127824;nashi</title>
+
+<style>
+
+body { background:WhiteSmoke; overflow:auto;}
+polygon {opacity: .2}
+
+/*Colours for line polygons. Order is important for overwrites!*/
+polygon.empty {fill:Salmon;}
+polygon.ocr {fill:Blue;}
+polygon.gt {fill:Green;}
+
+#svg0 {display: none;}
+#inputbox {display:none; margin-bottom: 2px;}
+#inputline {border:solid 1px white; background:White;}
+#inputline:focus {outline: solid 1px red;}
+
+</style>
+
+<script>
+
+function $(sel) {
+  return document.querySelector(sel);
+}
+
+
+// show svg0 in svg1 up to y, the rest in svg2
+// for some reason the height of svg2 has to be the whole image height?
+function splitsvg(y) {
+    var img_x = $("#image").getAttribute("width")
+    var img_y = $("#image").getAttribute("height")
+    $("#svg1").setAttribute("viewBox", "0,0,"+img_x+"," + y)
+    $("#svg1").setAttribute("width", img_x)
+    $("#svg1").setAttribute("height", y)
+    $("#svg2").setAttribute("viewBox", "0,"+y+","+img_x+","+img_y)
+    $("#svg2").setAttribute("width", img_x)
+    $("#svg2").setAttribute("height", img_y)
+}
+
+// resize font size to improve alignment between text and image
+function resizefont(len) {
+    var fontsize = parseFloat($("#inputbox").style.fontSize.split("px")[0]);
+    var sizefac = len / $("#inputline").offsetWidth;
+    $("#inputbox").style.fontSize = sizefac * fontsize + "px";
+}
+
+// toggle visibility of input and set position under line
+function togglediv(min_x, max_x, min_y, max_y) {
+    max_y++;
+    var currentsplit = $("#svg1").viewBox.baseVal["height"];
+    var inputbox = $("#inputbox");
+    inputbox.style.display = inputbox.style.display == "none" ? "block" : "none";
+    if ($("#inputbox").style.direction == "rtl"){
+        inputbox.style.paddingRight = $("#image").getAttribute("width") - max_x + "px";
+    } else {
+        inputbox.style.paddingLeft = min_x + "px";
+    }
+    if (max_y != currentsplit){
+        splitsvg(max_y);
+        inputbox.style.display = "block";
+        inputbox.style["font-size"] = (max_y-min_y)*0.6 + "px";
+	if ($('#inputline').textContent) {
+            resizefont(max_x-min_x);
+        }
+    } else {
+        splitsvg(0);
+    }
+}
+
+// return pagexml namespace
+function resolver() {
+    return pagexml.firstChild.attributes.xmlns.value;
+}
+
+// get the lowest index of the TextEquivs for a line
+function get_lowest_index(lineid) {
+    var xpath = '//ns:TextLine[@id="'+lineid+'"]/ns:TextEquiv/@index[not(. > //ns:TextLine[@id="'+lineid+'"]/ns:TextEquiv/@index)]';
+    var res = pagexml.evaluate(xpath, pagexml, resolver, XPathResult.ANY_TYPE, null );
+    return res.iterateNext();
+}
+
+// get bounding box from line points, set text content and activate inputline
+function clickline(link) {
+    var inputline = $("#inputline");
+    if (link==null){return false;}
+    var polygon = link.firstChild;
+    if (polygon==null){return false;}
+    // get points as array
+    var points = polygon.points;
+    var xarr = [];
+    var yarr = [];
+    for (i=0;i<points.length;i++){
+            xarr.push(points[i]["x"]);
+        yarr.push(points[i]["y"]);
+    }
+
+    // get and set text
+    var lindex = get_lowest_index(polygon.id);
+    var ix = lindex ? lindex.value : "0";
+    var textequiv = pagexml.getElementById(polygon.id).querySelector('TextEquiv[index="'+ix+'"]');
+    if(textequiv){
+        inputline.textContent = textequiv.firstElementChild.textContent;
+    }else{inputline.textContent = "";}
+
+    // activate input
+    togglediv(Math.min.apply(Math, xarr), Math.max.apply(Math, xarr), 
+              Math.min.apply(Math, yarr), Math.max.apply(Math, yarr));
+    inputline.focus();
+    inputline.setAttribute("currentid", polygon.id);
+    //window.scrollBy(0, inputline.getBoundingClientRect().top - (window.innerHeight>>1));
+}
+
+// save current text input to pagexml
+function savetext() {
+    var ns = pagexml.firstChild.attributes.xmlns.value;
+    var inputline = $("#inputline");
+    var cur = inputline.getAttribute("currentid");
+    var text = inputline.textContent;
+    var xmlline = pagexml.getElementById(cur);
+    var textequiv = pagexml.createElementNS(ns, "TextEquiv");
+    var unicode = pagexml.createElementNS(ns, "Unicode");
+    var oldtextequiv = pagexml.getElementById(cur).querySelector('TextEquiv[index="0"]');
+    if (oldtextequiv){
+        xmlline.removeChild(oldtextequiv);
+    }
+    textequiv.setAttribute("index","0");
+    unicode.textContent = text;
+    textequiv.appendChild(unicode);
+    xmlline.appendChild(textequiv);
+
+    clickline(document.getElementById(cur).parentElement.nextSibling);
+    //document.getElementById(cur).classList.remove("empty");
+    document.getElementById(cur).classList.add("gt");
+}
+
+// load the image file and initialize svg attributes
+function initpage(file, x, y) {
+    var img = $('#image'); //Get svg image element
+    img.setAttribute("x","0"); 
+    img.setAttribute("y","0");
+    img.setAttribute("width",x);
+    img.setAttribute("height",y);
+    var xlinkns = $('#svg0').attributes["xmlns:xlink"].value;
+    img.setAttributeNS(xlinkns,'href',file);
+    // init split svgs
+    $("#svg1").setAttribute("viewBox", "0,0,+"+x+"," + y)
+    $("#svg1").setAttribute("width", x)
+    $("#svg1").setAttribute("height", y)
+    $("#svg2").setAttribute("viewBox", "0,0,"+x+","+y)
+    $("#svg2").setAttribute("width", x)
+    $("#svg2").setAttribute("height", "0")
+}
+
+// download pagexml file
+function downloadxml() {
+    var filename = pagexml.URL.substr(pagexml.URL.lastIndexOf('/') + 1)
+    s = new XMLSerializer;
+    var string = s.serializeToString(pagexml);
+    var element = document.createElement('a');
+    element.setAttribute('href', 'data:text/xml;charset=utf-8,' + encodeURIComponent(string));
+    element.setAttribute('download', filename);
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+}
+
+// find number in filename, add value of variable dir and load new page
+function changepage(dir) {
+    var filename = window.location.search.substring(window.location.search.lastIndexOf("pagexml=")+8).split("&")[0];
+    var numberpart = filename.match(/\d+/)[0];
+    var newnumber = (parseInt(numberpart) + dir).toString().padStart(numberpart.length, "0")
+    var newfilename = filename.slice(0, filename.indexOf(numberpart[0]))
+                        + newnumber
+                     + filename.slice(1+filename.lastIndexOf(numberpart.slice(-1)));
+    var url = document.URL.split("pagexml=");
+    var urlrest = url[1].slice(url[1].indexOf("&"));
+    var newurl = url[0] + "pagexml=" + newfilename + urlrest;
+    window.location = newurl;
+}
+
+
+// keyboard shortcuts for text input
+function shortcuts(e) {
+    if (e.code == "Enter" && e.shiftKey){
+        e.preventDefault();
+        savetext();
+        }
+    if (e.code == "Tab"){
+        var cur = $("#inputline").getAttribute("currentid")
+        var link = document.getElementById(cur).parentElement
+        // End of page shout be caught here, not in clickline
+        if (e.shiftKey){
+                clickline(link.previousSibling);
+            }else{
+                clickline(link.nextSibling);
+            }
+        e.preventDefault();        
+        }
+}
+
+// keyboard shortcuts(global
+function shortcuts_global(e) {
+    if (e.code == "KeyS" && e.ctrlKey){
+        e.preventDefault();
+        downloadxml();
+        }
+    if (e.code == "PageDown" && e.shiftKey){
+        e.preventDefault();
+        changepage(1);
+        }
+    if (e.code == "PageUp" && e.shiftKey){
+        e.preventDefault();
+        changepage(-1);
+        }
+}
+
+//
+// Main function
+//
+function main() {
+// Get file and direction parameters from URL
+var vars = window.location.search.substring(1).split('&');
+for (var i = 0; i < vars.length; i++) {
+    var pair = vars[i].split('=');
+    if (decodeURIComponent(pair[0]) == "pagexml") {
+        var filename =  decodeURIComponent(pair[1]);
+        }
+    if (decodeURIComponent(pair[0]) == "direction") {
+        var direction =  decodeURIComponent(pair[1]);
+        }
+    }
+if (typeof(filename) == "undefined"){
+    var direction = "ltr";
+    } 
+
+if (direction == "rtl"){
+    $("body").style.direction = "rtl";
+    $("#inputbox").style.direction = "rtl";
+}
+
+// Keyboard shortcuts event handler
+$("#inputline").addEventListener("keydown", shortcuts, false);
+document.addEventListener("keydown", shortcuts_global, false);
+
+// Get xml file
+xmlhttp=new XMLHttpRequest();
+xmlhttp.open("GET", filename, false);
+xmlhttp.setRequestHeader("Content-Type", "text/xml");
+xmlhttp.send(null);
+var PageXml = xmlhttp.responseXML;
+pagexml = PageXml;
+var imgFile = PageXml.getElementsByTagName("Page")[0].attributes["imageFilename"].nodeValue;
+var image_x = PageXml.getElementsByTagName("Page")[0].attributes["imageWidth"].nodeValue;
+var image_y = PageXml.getElementsByTagName("Page")[0].attributes["imageHeight"].nodeValue;
+//init image width etc.
+initpage(imgFile, image_x, image_y);
+//textregions from file
+var svgns = $("#svg0").attributes.xmlns.value;
+var textregions = PageXml.getElementsByTagName("TextLine");
+for (i=0; i<textregions.length; i++){
+    var points = textregions[i].getElementsByTagName("Coords")[0].getAttribute("points");
+    var id = textregions[i].id
+    var textequiv = textregions[i].querySelector('TextEquiv[index="0"]');
+    var ocr = textregions[i].querySelector('TextEquiv');
+    // create links
+    var newlink = document.createElementNS(svgns, 'a');
+    newlink.setAttribute("onclick","clickline(this);return false;");
+    newlink.setAttribute("href","#"+id);
+    newlink.setAttribute("title","Edit line "+id);
+    // create polygons around lines
+    var newelement = document.createElementNS(svgns, 'polygon');
+    newelement.setAttribute("id",id);
+    newelement.setAttribute("points",points);
+    newelement.classList.add("line");
+    var status = "empty";
+    if (textequiv){ status = "gt";
+    } else if (ocr){status = "ocr";}
+    newelement.classList.add(status);
+    newlink.appendChild(newelement);
+    $("#group").appendChild(newlink);
+}
+
+}
+
+</script>
+
+</head>
+
+<body onload="main();">
+    <!-- invisible svg -->
+    <svg id="svg0" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"> 
+        <symbol id="group"><image id="image" height="0px" width="0px"/></symbol>
+    </svg>
+
+    <div>
+        <!-- upper part of svg -->
+        <div>
+            <svg id="svg1"><use xlink:href="#group"/></svg>
+        </div>
+
+        <!-- text input -->
+        <div id="inputbox">
+            <span id="inputline" contenteditable="true"></span>
+        </div>
+
+        <!-- lower part of svg -->
+        <div>
+            <svg id="svg2"><use xlink:href="#group"/></svg>
+        </div>
+    </div>
+</body>
+
+</html>
