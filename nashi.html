@@ -4,7 +4,6 @@
 <head>
 
 <meta charset="utf-8"/>
-
 <title>&#127824;nashi</title>
 
 <style>
@@ -226,68 +225,67 @@ function shortcuts_global(e) {
 // Main function
 //
 function main() {
-// Get file and direction parameters from URL
-var vars = window.location.search.substring(1).split('&');
-for (var i = 0; i < vars.length; i++) {
-    var pair = vars[i].split('=');
-    if (decodeURIComponent(pair[0]) == "pagexml") {
-        var filename =  decodeURIComponent(pair[1]);
+    // Get file and direction parameters from URL
+    var vars = window.location.search.substring(1).split('&');
+    for (var i = 0; i < vars.length; i++) {
+        var pair = vars[i].split('=');
+        if (decodeURIComponent(pair[0]) == "pagexml") {
+            var filename =  decodeURIComponent(pair[1]);
+            }
+        if (decodeURIComponent(pair[0]) == "direction") {
+            var direction =  decodeURIComponent(pair[1]);
+            }
         }
-    if (decodeURIComponent(pair[0]) == "direction") {
-        var direction =  decodeURIComponent(pair[1]);
-        }
-    }
-if (typeof(filename) == "undefined"){
-    var direction = "ltr";
+    if (typeof(direction) == "undefined"){
+        var direction = "ltr";
     } 
 
-if (direction == "rtl"){
-    $("body").style.direction = "rtl";
-    $("#inputbox").style.direction = "rtl";
-}
+    if (direction == "rtl"){
+        $("body").style.direction = "rtl";
+        $("#inputbox").style.direction = "rtl";
+    }
 
-// Keyboard shortcuts event handler
-$("#inputline").addEventListener("keydown", shortcuts, false);
-document.addEventListener("keydown", shortcuts_global, false);
+    // Keyboard shortcuts event handler
+    $("#inputline").addEventListener("keydown", shortcuts, false);
+    document.addEventListener("keydown", shortcuts_global, false);
 
-// Get xml file
-xmlhttp=new XMLHttpRequest();
-xmlhttp.open("GET", filename, false);
-xmlhttp.setRequestHeader("Content-Type", "text/xml");
-xmlhttp.send(null);
-var PageXml = xmlhttp.responseXML;
-pagexml = PageXml;
-var imgFile = PageXml.getElementsByTagName("Page")[0].attributes["imageFilename"].nodeValue;
-var image_x = PageXml.getElementsByTagName("Page")[0].attributes["imageWidth"].nodeValue;
-var image_y = PageXml.getElementsByTagName("Page")[0].attributes["imageHeight"].nodeValue;
-//init image width etc.
-initpage(imgFile, image_x, image_y);
-//textregions from file
-var svgns = $("#svg0").attributes.xmlns.value;
-var textregions = PageXml.getElementsByTagName("TextLine");
-for (i=0; i<textregions.length; i++){
-    var points = textregions[i].getElementsByTagName("Coords")[0].getAttribute("points");
-    var id = textregions[i].id
-    var textequiv = textregions[i].querySelector('TextEquiv[index="0"]');
-    var ocr = textregions[i].querySelector('TextEquiv');
-    // create links
-    var newlink = document.createElementNS(svgns, 'a');
-    newlink.setAttribute("onclick","clickline(this);return false;");
-    newlink.setAttribute("href","#"+id);
-    newlink.setAttribute("title","Edit line "+id);
-    // create polygons around lines
-    var newelement = document.createElementNS(svgns, 'polygon');
-    newelement.setAttribute("id",id);
-    newelement.setAttribute("points",points);
-    newelement.classList.add("line");
-    var status = "empty";
-    if (textequiv){ status = "gt";
-    } else if (ocr){status = "ocr";}
-    newelement.classList.add(status);
-    newlink.appendChild(newelement);
-    $("#group").appendChild(newlink);
-}
-
+    // Get xml file
+    var xmlhttp=new XMLHttpRequest();
+    xmlhttp.open("GET", filename, false);
+    xmlhttp.setRequestHeader("Content-Type", "text/xml");
+    xmlhttp.send(null);
+    var PageXml = xmlhttp.responseXML;
+    pagexml = PageXml;
+    var imgFile = PageXml.getElementsByTagName("Page")[0].attributes["imageFilename"].nodeValue;
+    var image_x = PageXml.getElementsByTagName("Page")[0].attributes["imageWidth"].nodeValue;
+    var image_y = PageXml.getElementsByTagName("Page")[0].attributes["imageHeight"].nodeValue;
+    //init image width etc.
+    initpage(imgFile, image_x, image_y);
+    //textregions from file
+    var svgns = $("#svg0").attributes.xmlns.value;
+    var textregions = PageXml.getElementsByTagName("TextLine");
+    for (i=0; i<textregions.length; i++){
+        var points = textregions[i].getElementsByTagName("Coords")[0].getAttribute("points");
+        var id = textregions[i].id
+        var textequiv = textregions[i].querySelector('TextEquiv[index="0"]');
+        var ocr = textregions[i].querySelector('TextEquiv');
+        // create links
+        var newlink = document.createElementNS(svgns, 'a');
+        newlink.setAttribute("onclick","clickline(this);return false;");
+        newlink.setAttribute("href","#"+id);
+        newlink.setAttribute("title","Edit line "+id);
+        // create polygons around lines
+        var newelement = document.createElementNS(svgns, 'polygon');
+        newelement.setAttribute("id",id);
+        newelement.setAttribute("points",points);
+        newelement.classList.add("line");
+        var status = "empty";
+        if (textequiv){ status = "gt";
+            } else if (ocr){status = "ocr";}
+        newelement.classList.add(status);
+        newlink.appendChild(newelement);
+        $("#group").appendChild(newlink);
+    }
 }
 
 </script>
@@ -315,7 +313,9 @@ for (i=0; i<textregions.length; i++){
         <div>
             <svg id="svg2"><use xlink:href="#group"/></svg>
         </div>
-    </div>
+    </div> 
+
+
 </body>
 
 </html>
