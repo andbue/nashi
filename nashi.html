@@ -32,16 +32,16 @@ function $(sel) {
 
 
 // show svg0 in svg1 up to y, the rest in svg2
-// for some reason the height of svg2 has to be the whole image height?
 function splitsvg(y) {
-    var img_x = $("#image").getAttribute("width")
-    var img_y = $("#image").getAttribute("height")
-    $("#svg1").setAttribute("viewBox", "0,0,"+img_x+"," + y)
-    $("#svg1").setAttribute("width", img_x)
-    $("#svg1").setAttribute("height", y)
-    $("#svg2").setAttribute("viewBox", "0,"+y+","+img_x+","+img_y)
-    $("#svg2").setAttribute("width", img_x)
-    $("#svg2").setAttribute("height", img_y)
+    var img_x = $("#image").getAttribute("width");
+    var img_y = $("#image").getAttribute("height");
+    $("#svg1").setAttribute("viewBox", "0,0,"+img_x+"," + y);
+    $("#svg1").setAttribute("width", img_x);
+    $("#svg1").setAttribute("height", y);
+    $("#svg2").setAttribute("viewBox", "0,"+y+","+img_x+","+img_y);
+    $("#svg2").setAttribute("preserveAspectRatio", "xMinYMin slice");
+    $("#svg2").setAttribute("width", img_x);
+    $("#svg2").setAttribute("height", parseInt(img_y)-parseInt(y));
 }
 
 // resize font size to improve alignment between text and image
