@@ -1,5 +1,5 @@
 # nashi
-Some bits of javascript to transcribe scanned pages using PageXML
+Some bits of javascript to transcribe scanned pages using PageXML. [Try it!](https://andbue.github.io/nashi/nashi.html?pagexml=Test.xml)
 
 ## How to start
 - Put nashi.html in a folder with your PageXML files (containing line segmentation data) and the page images. Serve the folder in a webserver of your choice or simply use the file:// protocol (only supported in Firefox at the moment).
