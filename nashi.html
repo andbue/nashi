@@ -18,8 +18,8 @@ polygon.gt {fill:Green;}
 
 #svg0 {display: none;}
 #inputbox {display:none; margin-bottom: 2px;}
-#inputline {border:solid 1px white; background:White;}
-#inputline:focus {outline: solid 1px red;}
+#inputline {border:solid 2px white; background:White; white-space:nowrap;}
+/*#inputline:focus {outline: solid 2px red;}*/
 
 </style>
 
@@ -57,9 +57,9 @@ function togglediv(min_x, max_x, min_y, max_y) {
     var inputbox = $("#inputbox");
     inputbox.style.display = inputbox.style.display == "none" ? "block" : "none";
     if ($("#inputbox").style.direction == "rtl"){
-        inputbox.style.paddingRight = $("#image").getAttribute("width") - max_x + "px";
+        inputbox.style.marginRight = $("#image").getAttribute("width") - max_x + "px";
     } else {
-        inputbox.style.paddingLeft = min_x + "px";
+        inputbox.style.marginLeft = min_x + "px";
     }
     if (max_y != currentsplit){
         splitsvg(max_y);
@@ -259,6 +259,11 @@ function main() {
     var imgFile = PageXml.getElementsByTagName("Page")[0].attributes["imageFilename"].nodeValue;
     var image_x = PageXml.getElementsByTagName("Page")[0].attributes["imageWidth"].nodeValue;
     var image_y = PageXml.getElementsByTagName("Page")[0].attributes["imageHeight"].nodeValue;
+    $("#editor").style.width = image_x + "px";
+    var scale = 880 / parseInt(image_x);
+    $("#editor").style.transformOrigin = direction == "rtl" ? "top right" : "top left";
+    $("#editor").style.transform = "scale("+scale+")";
+
     //init image width etc.
     initpage(imgFile, image_x, image_y);
     //textregions from file
@@ -298,7 +303,7 @@ function main() {
         <symbol id="group"><image id="image" height="0px" width="0px"/></symbol>
     </svg>
 
-    <div>
+    <div id="editor">
         <!-- upper part of svg -->
         <div>
             <svg id="svg1"><use xlink:href="#group"/></svg>
