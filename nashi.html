@@ -17,13 +17,27 @@ polygon.ocr {fill:Blue;}
 polygon.gt {fill:Green;}
 
 #svg0 {display: none;}
-#inputbox {display:none; margin-bottom: 2px;}
+#inputbox {display:none; margin-bottom: 2px; font-family: Andron Scriptor Web;}
 #inputline {border:solid 2px white; background:White; white-space:nowrap;}
+#vkeyboard {display:none;}
 /*#inputline:focus {outline: solid 2px red;}*/
 
 </style>
 
 <script>
+// virtual keyboard, max 10 entries per char
+virtualkeyboard = {
+"a": ["ä", "ā", "æ"],
+"b": ["b᷎",	"b"],
+"c": ["c̄"],
+"e": ["ē", "ę"],
+"m": [""],
+"n": [""],
+"o": ["ō"],
+"p": ["", "p̃",	"ꝑ", "ꝓ"],
+"q": ["qᷓ", "q̄", "q", "ꝗ", "ꝗᷓ", "q̊",	"q̈", "ꝙ", "ꝙᷓ", ""]
+};
+
 
 function $(sel) {
   return document.querySelector(sel);
@@ -188,6 +202,47 @@ function changepage(dir) {
 
 // keyboard shortcuts for text input
 function shortcuts(e) {
+
+    if (e.code.startsWith("Digit") && e.shiftKey && e.altKey){
+        e.preventDefault();
+        var sel = window.getSelection();
+        var pos = sel.focusOffset -1;
+        var text = sel.focusNode.data;
+        if (pos < 0) pos = 0;
+        var char = text[pos];
+        if (char in virtualkeyboard){
+            var nmb = parseInt(e.code[5]);
+            if (nmb == 0){ nmb = 10; }
+            if (nmb > virtualkeyboard[char].length){ nmb = 1; }
+            var insert = virtualkeyboard[char][nmb-1];
+            sel.focusNode.data = text.slice(0,pos)+insert+text.slice(pos+1);
+            // reset caret
+            var range = document.createRange();
+            range.setStart(sel.focusNode, pos+insert.length);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+
+    }
+
+    if (e.code == "AltLeft" && e.shiftKey){
+        e.preventDefault();
+        var sel = window.getSelection();
+        var pos = sel.focusOffset -1;
+        var text = sel.focusNode.data;
+        if (pos < 0) pos = 0;
+        var char = sel.focusNode.data[pos];
+        if (char in virtualkeyboard){
+            var alt = virtualkeyboard[char]
+            var displaykeys = "";
+            for (var i=0; i<alt.length; i++){
+                displaykeys += "¹²³⁴⁵⁶⁷⁸⁹⁰"[i] + alt[i] + " ";
+            }
+            $("#vkeyboard").innerText = displaykeys;
+            $("#vkeyboard").style.display = "block";
+        }
+    }
     if (e.code == "Enter" && e.shiftKey){
         e.preventDefault();
         savetext();
@@ -203,6 +258,12 @@ function shortcuts(e) {
             }
         e.preventDefault();        
         }
+}
+
+function shortcuts_up(e) {
+    if (e.code == "AltLeft"){
+        $("#vkeyboard").style.display = "none";
+    }
 }
 
 // keyboard shortcuts(global
@@ -223,6 +284,7 @@ function shortcuts_global(e) {
 
 //
 // Main function
+
 //
 function main() {
     // Get file and direction parameters from URL
@@ -247,6 +309,7 @@ function main() {
 
     // Keyboard shortcuts event handler
     $("#inputline").addEventListener("keydown", shortcuts, false);
+    $("#inputline").addEventListener("keyup", shortcuts_up, false);
     document.addEventListener("keydown", shortcuts_global, false);
 
     // Get xml file
@@ -269,7 +332,7 @@ function main() {
     //textregions from file
     var svgns = $("#svg0").attributes.xmlns.value;
     var textregions = PageXml.getElementsByTagName("TextLine");
-    for (i=0; i<textregions.length; i++){
+    for (var i=0; i<textregions.length; i++){
         var points = textregions[i].getElementsByTagName("Coords")[0].getAttribute("points");
         var id = textregions[i].id
         var textequiv = textregions[i].querySelector('TextEquiv[index="0"]');
@@ -312,6 +375,7 @@ function main() {
         <!-- text input -->
         <div id="inputbox">
             <span id="inputline" contenteditable="true"></span>
+            <div id="vkeyboard"></div>
         </div>
 
         <!-- lower part of svg -->
