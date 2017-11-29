@@ -1,4 +1,4 @@
-# nashi
+# nashi (nasḫī)
 Some bits of javascript to transcribe scanned pages using PageXML. [Try it!](https://andbue.github.io/nashi/nashi.html?pagexml=Test.xml)
 
 ## How to start
