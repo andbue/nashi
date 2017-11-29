@@ -62,9 +62,9 @@
             <TextLine id="r4_l0">
                 <Coords points="53,283 896,283 896,313 53,313"/>
             </TextLine>
-            <TextLine id="r4_l1">
+            <TextLine id="r4_l1" comments="My comment: one of the greatest lines in literature." >
                 <Coords points="53,342 896,342 896,372 53,372"/>
-                <TextEquiv index="0" comments="My comment: one of the greatest lines in literature.">
+                <TextEquiv index="0">
                     <Unicode>Text Text Text Text Text this is ground truth</Unicode>
                 </TextEquiv>
             </TextLine>
