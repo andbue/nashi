@@ -20,6 +20,7 @@ polygon.gt {fill:Green;}
 #inputbox {display:none; margin-bottom: 2px; font-family: Andron Scriptor Web;}
 #inputline {border:solid 2px white; background:White; white-space:nowrap;}
 #vkeyboard {display:none;}
+#commentline {min-height: 1.25em; display: none; border:solid 2px white; background:Lightyellow;}
 /*#inputline:focus {outline: solid 2px red;}*/
 
 </style>
@@ -118,24 +119,28 @@ function clickline(link) {
     var lindex = get_lowest_index(polygon.id);
     var ix = lindex ? lindex.value : "0";
     var textequiv = pagexml.getElementById(polygon.id).querySelector('TextEquiv[index="'+ix+'"]');
-    if(textequiv){
-        inputline.textContent = textequiv.firstElementChild.textContent;
-    }else{inputline.textContent = "";}
+
+    $("#inputline").textContent = textequiv ? textequiv.firstElementChild.textContent : "";
+
+
+
+    // get and set comments
+    var comment = pagexml.getElementById(polygon.id).attributes.comments;
+    $("#commentline").innerHTML = comment ? comment.value : "";    
+    $("#commentline").style.display = comment && comment.value ? "block" : "none";
 
     // activate input
     togglediv(Math.min.apply(Math, xarr), Math.max.apply(Math, xarr), 
               Math.min.apply(Math, yarr), Math.max.apply(Math, yarr));
-    inputline.focus();
-    inputline.setAttribute("currentid", polygon.id);
+    $("#inputline").focus();
+    $("#inputline").setAttribute("currentid", polygon.id);
     //window.scrollBy(0, inputline.getBoundingClientRect().top - (window.innerHeight>>1));
 }
 
 // save current text input to pagexml
 function savetext() {
     var ns = pagexml.firstChild.attributes.xmlns.value;
-    var inputline = $("#inputline");
-    var cur = inputline.getAttribute("currentid");
-    var text = inputline.textContent;
+    var cur = $("#inputline").getAttribute("currentid");
     var xmlline = pagexml.getElementById(cur);
     var textequiv = pagexml.createElementNS(ns, "TextEquiv");
     var unicode = pagexml.createElementNS(ns, "Unicode");
@@ -144,14 +149,37 @@ function savetext() {
         xmlline.removeChild(oldtextequiv);
     }
     textequiv.setAttribute("index","0");
-    unicode.textContent = text;
+    unicode.textContent = $("#inputline").textContent;
     textequiv.appendChild(unicode);
     xmlline.appendChild(textequiv);
+
+    if ($("#commentline").style.display != "none"){
+        savecomment();
+        // prevent subsequent blur event from saving next line
+        $("#commentline").setAttribute("dontsave", "true");
+    }    
 
     clickline(document.getElementById(cur).parentElement.nextSibling);
     //document.getElementById(cur).classList.remove("empty");
     document.getElementById(cur).classList.add("gt");
 }
+
+// save comment (@ blur of comment line)
+function savecomment(e) {
+    if ($("#commentline").getAttribute("dontsave")){
+        // saving already done in savetext()
+        $("#commentline").removeAttribute("dontsave");
+    } else {
+        var cur = inputline.getAttribute("currentid");
+        var comment = $("#commentline").innerHTML;
+        if (comment) {
+            pagexml.getElementById(cur).setAttribute("comments", comment);
+        } else {
+            pagexml.getElementById(cur).removeAttribute("comments");
+        }
+    }
+}
+
 
 // load the image file and initialize svg attributes
 function initpage(file, x, y) {
@@ -202,7 +230,11 @@ function changepage(dir) {
 
 // keyboard shortcuts for text input
 function shortcuts(e) {
-
+    if (e.code == "Insert" && e.shiftKey){
+        e.preventDefault();
+        $("#commentline").style.display = "block";
+        $("#commentline").focus();
+    }
     if (e.code.startsWith("Digit") && e.shiftKey && e.altKey){
         e.preventDefault();
         var sel = window.getSelection();
@@ -244,6 +276,7 @@ function shortcuts(e) {
         }
     }
     if (e.code == "Enter" && e.shiftKey){
+        console.log(e);
         e.preventDefault();
         savetext();
         }
@@ -308,8 +341,9 @@ function main() {
     }
 
     // Keyboard shortcuts event handler
-    $("#inputline").addEventListener("keydown", shortcuts, false);
-    $("#inputline").addEventListener("keyup", shortcuts_up, false);
+    $("#inputbox").addEventListener("keydown", shortcuts, false);
+    $("#inputbox").addEventListener("keyup", shortcuts_up, false);
+    $("#commentline").addEventListener("blur", savecomment, false);
     document.addEventListener("keydown", shortcuts_global, false);
 
     // Get xml file
@@ -376,6 +410,7 @@ function main() {
         <div id="inputbox">
             <span id="inputline" contenteditable="true"></span>
             <div id="vkeyboard"></div>
+            <span id="commentline" contenteditable="true"></span>
         </div>
 
         <!-- lower part of svg -->

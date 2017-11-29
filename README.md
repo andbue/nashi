@@ -13,8 +13,8 @@ Some bits of javascript to transcribe scanned pages using PageXML. [Try it!](htt
 ### Keyboard shortcuts in the text input area
 - Tab/Shift+Tab switches to the next/previous input
 - Shift+Enter saves the edits for the current line
-- Shift+Alt shows an additional range of characters to select as an alternative to the character next to the cursor. Input one of them using the 
-corresponding number
+- Shift+Alt shows an additional range of characters to select as an alternative to the character next to the cursor. Input one of them using the corresponding number. 
+- Shift+Insert opens a new comment field
 ### Global keyboard shortcuts
 - Shift+PageUp/PageDown loads the next/previous page if the filenames of your PageXML files contain the number
 - Ctrl+S downloads the PageXML file 
@@ -22,4 +22,4 @@ corresponding number
 ## Planned features
 - Simple server in flask
 - Help, list of shortcuts
-- Add fields for comments, user defined shortcuts...
+- User defined shortcuts...

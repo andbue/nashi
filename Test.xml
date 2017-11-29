@@ -64,23 +64,20 @@
             </TextLine>
             <TextLine id="r4_l1">
                 <Coords points="53,342 896,342 896,372 53,372"/>
-                <TextEquiv index="0">
-                    <Unicode>Text Text Text Text Text this is 
-true</Unicode>
+                <TextEquiv index="0" comments="My comment: one of the greatest lines in literature.">
+                    <Unicode>Text Text Text Text Text this is ground truth</Unicode>
                 </TextEquiv>
             </TextLine>
             <TextLine id="r4_l2">
                 <Coords points="53,401 896,401 896,431 53,431"/>
             </TextLine>
-            <TextLine id="r4_l3">
+            <TextLine id="r4_l3" comments="comments:&lt;br&gt;- may contain new lines&lt;br&gt;- are saved automatically when leaving the comments field&lt;br&gt;- create new comment to any line with Shift+Insert">
                 <Coords points="53,460 896,460 896,490 53,490"/>
                 <TextEquiv index="3">
-                    <Unicode>Test Test Test Test Test said 
-some OCR engine</Unicode>
+                    <Unicode>Test Test Test Test Test said some OCR engine</Unicode>
                 </TextEquiv>
                 <TextEquiv index="2">
-                    <Unicode>Test Test Test Test Test hello 
-from your OCR</Unicode>
+                    <Unicode>Test Test Test Test Test hello from your OCR</Unicode>
                 </TextEquiv>
             </TextLine>
             <TextLine id="r4_l4">
