@@ -7,7 +7,6 @@
 <title>&#127824;nashi</title>
 
 <style>
-
 body { background:WhiteSmoke; overflow:auto;}
 polygon {opacity: .2}
 
@@ -22,10 +21,10 @@ polygon.gt {fill:Green;}
 #vkeyboard {display:none;}
 #commentline {min-height: 1.25em; display: none; border:solid 2px white; background:Lightyellow;}
 /*#inputline:focus {outline: solid 2px red;}*/
-
 </style>
 
 <script>
+
 // virtual keyboard, max 10 entries per char
 virtualkeyboard = {
 "a": ["ä", "ā", "æ"],
@@ -39,11 +38,9 @@ virtualkeyboard = {
 "q": ["qᷓ", "q̄", "q", "ꝗ", "ꝗᷓ", "q̊",	"q̈", "ꝙ", "ꝙᷓ", ""]
 };
 
-
 function $(sel) {
   return document.querySelector(sel);
 }
-
 
 // show svg0 in svg1 up to y, the rest in svg2
 function splitsvg(y) {
@@ -119,10 +116,7 @@ function clickline(link) {
     var lindex = get_lowest_index(polygon.id);
     var ix = lindex ? lindex.value : "0";
     var textequiv = pagexml.getElementById(polygon.id).querySelector('TextEquiv[index="'+ix+'"]');
-
     $("#inputline").textContent = textequiv ? textequiv.firstElementChild.textContent : "";
-
-
 
     // get and set comments
     var comment = pagexml.getElementById(polygon.id).attributes.comments;
@@ -153,6 +147,7 @@ function savetext() {
     textequiv.appendChild(unicode);
     xmlline.appendChild(textequiv);
 
+    // save comments
     if ($("#commentline").style.display != "none"){
         savecomment();
         // prevent subsequent blur event from saving next line
@@ -160,7 +155,6 @@ function savetext() {
     }    
 
     clickline(document.getElementById(cur).parentElement.nextSibling);
-    //document.getElementById(cur).classList.remove("empty");
     document.getElementById(cur).classList.add("gt");
 }
 
@@ -180,26 +174,100 @@ function savecomment(e) {
     }
 }
 
-
 // load the image file and initialize svg attributes
-function initpage(file, x, y) {
-    var img = $('#image'); //Get svg image element
-    img.setAttribute("x","0"); 
-    img.setAttribute("y","0");
-    img.setAttribute("width",x);
-    img.setAttribute("height",y);
+function initpage(file, x, y, direction) {
+    $("body").style.direction = direction;
+    $("#inputbox").style.direction = direction;
+    $("#editor").style.width = x + "px";
+    // scale image to 880px width
+    var scale = 880 / parseInt(x);
+    $("#editor").style.transformOrigin = direction == "rtl" ? "top right" : "top left";
+    $("#editor").style.transform = "scale("+scale+")";
+    $('#image').setAttribute("x","0"); 
+    $('#image').setAttribute("y","0");
+    $('#image').setAttribute("width",x);
+    $('#image').setAttribute("height",y);
     var xlinkns = $('#svg0').attributes["xmlns:xlink"].value;
-    img.setAttributeNS(xlinkns,'href',file);
+    $('#image').setAttributeNS(xlinkns,'href',file);
     // init split svgs
-    $("#svg1").setAttribute("viewBox", "0,0,+"+x+"," + y)
-    $("#svg1").setAttribute("width", x)
-    $("#svg1").setAttribute("height", y)
-    $("#svg2").setAttribute("viewBox", "0,0,"+x+","+y)
-    $("#svg2").setAttribute("width", x)
-    $("#svg2").setAttribute("height", "0")
+    $("#svg1").setAttribute("viewBox", "0,0,+"+x+"," + y);
+    $("#svg1").setAttribute("width", x);
+    $("#svg1").setAttribute("height", y);
+    $("#svg2").setAttribute("viewBox", "0,0,"+x+","+y);
+    $("#svg2").setAttribute("width", x);
+    $("#svg2").setAttribute("height", "0");
 }
 
-// download pagexml file
+// initialize text line regions
+function initregions() {
+    //textregions from file
+    var svgns = $("#svg0").attributes.xmlns.value;
+    var textregions = pagexml.getElementsByTagName("TextLine");
+    for (var i=0; i<textregions.length; i++){
+        var points = textregions[i].getElementsByTagName("Coords")[0].getAttribute("points");
+        var id = textregions[i].id
+        var textequiv = textregions[i].querySelector('TextEquiv[index="0"]');
+        var ocr = textregions[i].querySelector('TextEquiv');
+        // create links
+        var newlink = document.createElementNS(svgns, 'a');
+        newlink.setAttribute("onclick","clickline(this);return false;");
+        newlink.setAttribute("href","#"+id);
+        newlink.setAttribute("title","Edit line "+id);
+        // create polygons around lines
+        var newelement = document.createElementNS(svgns, 'polygon');
+        newelement.setAttribute("id",id);
+        newelement.setAttribute("points",points);
+        newelement.classList.add("line");
+        var status = "empty";
+        if (textequiv){ status = "gt";
+            } else if (ocr){status = "ocr";}
+        newelement.classList.add(status);
+        newlink.appendChild(newelement);
+        $("#group").appendChild(newlink);
+    }
+}
+
+// event handler for pagexml request
+function pagexmlOnload() {
+    pagexml = this.responseXML;
+    var direction = this.direction;
+    var imgFile = pagexml.getElementsByTagName("Page")[0].attributes["imageFilename"].nodeValue;
+    var image_x = pagexml.getElementsByTagName("Page")[0].attributes["imageWidth"].nodeValue;
+    var image_y = pagexml.getElementsByTagName("Page")[0].attributes["imageHeight"].nodeValue;
+    //init image width etc. and regions
+    initpage(imgFile, image_x, image_y, direction);
+    initregions();
+}
+
+// get xml file
+function getxml(filename, direction){
+    var xmlhttp=new XMLHttpRequest();
+    xmlhttp.direction = direction;
+    xmlhttp.open("GET", filename);
+    xmlhttp.setRequestHeader("Content-Type", "text/xml");
+    xmlhttp.addEventListener("load", pagexmlOnload);
+    xmlhttp.send();
+}
+
+// Get file and direction parameters from URL
+function uriparams() {
+    var vars = window.location.search.substring(1).split('&');
+    for (var i = 0; i < vars.length; i++) {
+        var pair = vars[i].split('=');
+        if (decodeURIComponent(pair[0]) == "pagexml") {
+            var filename =  decodeURIComponent(pair[1]);
+            }
+        if (decodeURIComponent(pair[0]) == "direction") {
+            var direction =  decodeURIComponent(pair[1]);
+            }
+        }
+    if (typeof(direction) == "undefined"){
+        var direction = "ltr";
+    }
+    return [filename, direction];
+}
+
+// send pagexml file as download
 function downloadxml() {
     var filename = pagexml.URL.substr(pagexml.URL.lastIndexOf('/') + 1)
     s = new XMLSerializer;
@@ -230,11 +298,13 @@ function changepage(dir) {
 
 // keyboard shortcuts for text input
 function shortcuts(e) {
+
     if (e.code == "Insert" && e.shiftKey){
         e.preventDefault();
         $("#commentline").style.display = "block";
         $("#commentline").focus();
     }
+
     if (e.code.startsWith("Digit") && e.shiftKey && e.altKey){
         e.preventDefault();
         var sel = window.getSelection();
@@ -275,11 +345,12 @@ function shortcuts(e) {
             $("#vkeyboard").style.display = "block";
         }
     }
+
     if (e.code == "Enter" && e.shiftKey){
-        console.log(e);
         e.preventDefault();
         savetext();
         }
+
     if (e.code == "Tab"){
         var cur = $("#inputline").getAttribute("currentid")
         var link = document.getElementById(cur).parentElement
@@ -293,6 +364,7 @@ function shortcuts(e) {
         }
 }
 
+// Keyup shortcut to close toggle virtual keyboard
 function shortcuts_up(e) {
     if (e.code == "AltLeft"){
         $("#vkeyboard").style.display = "none";
@@ -317,81 +389,20 @@ function shortcuts_global(e) {
 
 //
 // Main function
-
 //
 function main() {
-    // Get file and direction parameters from URL
-    var vars = window.location.search.substring(1).split('&');
-    for (var i = 0; i < vars.length; i++) {
-        var pair = vars[i].split('=');
-        if (decodeURIComponent(pair[0]) == "pagexml") {
-            var filename =  decodeURIComponent(pair[1]);
-            }
-        if (decodeURIComponent(pair[0]) == "direction") {
-            var direction =  decodeURIComponent(pair[1]);
-            }
-        }
-    if (typeof(direction) == "undefined"){
-        var direction = "ltr";
-    } 
-
-    if (direction == "rtl"){
-        $("body").style.direction = "rtl";
-        $("#inputbox").style.direction = "rtl";
-    }
-
-    // Keyboard shortcuts event handler
+    // Add event handlers
     $("#inputbox").addEventListener("keydown", shortcuts, false);
     $("#inputbox").addEventListener("keyup", shortcuts_up, false);
     $("#commentline").addEventListener("blur", savecomment, false);
     document.addEventListener("keydown", shortcuts_global, false);
 
-    // Get xml file
-    var xmlhttp=new XMLHttpRequest();
-    xmlhttp.open("GET", filename, false);
-    xmlhttp.setRequestHeader("Content-Type", "text/xml");
-    xmlhttp.send(null);
-    var PageXml = xmlhttp.responseXML;
-    pagexml = PageXml;
-    var imgFile = PageXml.getElementsByTagName("Page")[0].attributes["imageFilename"].nodeValue;
-    var image_x = PageXml.getElementsByTagName("Page")[0].attributes["imageWidth"].nodeValue;
-    var image_y = PageXml.getElementsByTagName("Page")[0].attributes["imageHeight"].nodeValue;
-    $("#editor").style.width = image_x + "px";
-    var scale = 880 / parseInt(image_x);
-    $("#editor").style.transformOrigin = direction == "rtl" ? "top right" : "top left";
-    $("#editor").style.transform = "scale("+scale+")";
-
-    //init image width etc.
-    initpage(imgFile, image_x, image_y);
-    //textregions from file
-    var svgns = $("#svg0").attributes.xmlns.value;
-    var textregions = PageXml.getElementsByTagName("TextLine");
-    for (var i=0; i<textregions.length; i++){
-        var points = textregions[i].getElementsByTagName("Coords")[0].getAttribute("points");
-        var id = textregions[i].id
-        var textequiv = textregions[i].querySelector('TextEquiv[index="0"]');
-        var ocr = textregions[i].querySelector('TextEquiv');
-        // create links
-        var newlink = document.createElementNS(svgns, 'a');
-        newlink.setAttribute("onclick","clickline(this);return false;");
-        newlink.setAttribute("href","#"+id);
-        newlink.setAttribute("title","Edit line "+id);
-        // create polygons around lines
-        var newelement = document.createElementNS(svgns, 'polygon');
-        newelement.setAttribute("id",id);
-        newelement.setAttribute("points",points);
-        newelement.classList.add("line");
-        var status = "empty";
-        if (textequiv){ status = "gt";
-            } else if (ocr){status = "ocr";}
-        newelement.classList.add(status);
-        newlink.appendChild(newelement);
-        $("#group").appendChild(newlink);
-    }
+    // Get filename and dir, fetch pagexml
+    var [filename, direction] = uriparams();
+    getxml(filename, direction);
 }
 
 </script>
-
 </head>
 
 <body onload="main();">
@@ -399,27 +410,21 @@ function main() {
     <svg id="svg0" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"> 
         <symbol id="group"><image id="image" height="0px" width="0px"/></symbol>
     </svg>
-
     <div id="editor">
         <!-- upper part of svg -->
         <div>
             <svg id="svg1"><use xlink:href="#group"/></svg>
         </div>
-
         <!-- text input -->
         <div id="inputbox">
             <span id="inputline" contenteditable="true"></span>
-            <div id="vkeyboard"></div>
             <span id="commentline" contenteditable="true"></span>
+            <div id="vkeyboard"></div>
         </div>
-
         <!-- lower part of svg -->
         <div>
             <svg id="svg2"><use xlink:href="#group"/></svg>
         </div>
     </div> 
-
-
 </body>
-
 </html>
