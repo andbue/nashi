@@ -47,11 +47,8 @@ function splitsvg(y) {
     var img_x = $("#image").getAttribute("width");
     var img_y = $("#image").getAttribute("height");
     $("#svg1").setAttribute("viewBox", "0,0,"+img_x+"," + y);
-    $("#svg1").setAttribute("width", img_x);
     $("#svg1").setAttribute("height", y);
     $("#svg2").setAttribute("viewBox", "0,"+y+","+img_x+","+img_y);
-    $("#svg2").setAttribute("preserveAspectRatio", "xMinYMin slice");
-    $("#svg2").setAttribute("width", img_x);
     $("#svg2").setAttribute("height", parseInt(img_y)-parseInt(y));
 }
 
@@ -191,11 +188,9 @@ function initpage(file, x, y, direction) {
     $('#image').setAttributeNS(xlinkns,'href',file);
     // init split svgs
     $("#svg1").setAttribute("viewBox", "0,0,+"+x+"," + y);
-    $("#svg1").setAttribute("width", x);
-    $("#svg1").setAttribute("height", y);
-    $("#svg2").setAttribute("viewBox", "0,0,"+x+","+y);
     $("#svg2").setAttribute("width", x);
     $("#svg2").setAttribute("height", "0");
+    $("#svg2").setAttribute("preserveAspectRatio", "xMinYMin slice");
 }
 
 // initialize text line regions
@@ -292,9 +287,19 @@ function changepage(dir) {
     var url = document.URL.split("pagexml=");
     var urlrest = url[1].slice(url[1].indexOf("&"));
     var newurl = url[0] + "pagexml=" + newfilename + urlrest;
-    window.location = newurl;
+    var selfname = window.location.pathname.split("/").pop();
+    history.pushState("", "", selfname + "?pagexml=" + newfilename + urlrest);
+    var [filename, direction] = uriparams();
+    while ($("#group").childElementCount > 1){
+        $("#group").removeChild($("#group").getElementsByTagName("a")[0])    
+    }
+    $("#image").removeAttribute("href")
+    getxml(filename, direction);    
 }
 
+function reload(e) {
+    changepage(0);
+}
 
 // keyboard shortcuts for text input
 function shortcuts(e) {
@@ -396,7 +401,8 @@ function main() {
     $("#inputbox").addEventListener("keyup", shortcuts_up, false);
     $("#commentline").addEventListener("blur", savecomment, false);
     document.addEventListener("keydown", shortcuts_global, false);
-
+    window.onpopstate = reload;
+    
     // Get filename and dir, fetch pagexml
     var [filename, direction] = uriparams();
     getxml(filename, direction);
@@ -406,15 +412,13 @@ function main() {
 </head>
 
 <body onload="main();">
-    <!-- invisible svg -->
-    <svg id="svg0" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"> 
-        <symbol id="group"><image id="image" height="0px" width="0px"/></symbol>
-    </svg>
     <div id="editor">
+        <!-- invisible svg -->
+        <svg id="svg0" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"> 
+            <symbol id="group"><image id="image" height="0px" width="0px"/></symbol>
+        </svg>
         <!-- upper part of svg -->
-        <div>
-            <svg id="svg1"><use xlink:href="#group"/></svg>
-        </div>
+        <svg id="svg1"><use xlink:href="#group"/></svg>
         <!-- text input -->
         <div id="inputbox">
             <span id="inputline" contenteditable="true"></span>
@@ -422,9 +426,7 @@ function main() {
             <div id="vkeyboard"></div>
         </div>
         <!-- lower part of svg -->
-        <div>
             <svg id="svg2"><use xlink:href="#group"/></svg>
-        </div>
     </div> 
 </body>
 </html>
