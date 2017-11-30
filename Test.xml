@@ -7,6 +7,15 @@
         <LastChange>2017-10-26T13:40:06</LastChange>
     </Metadata>
     <Page imageFilename="Test.png" imageHeight="1684" imageWidth="1226">
+        <ReadingOrder>
+            <OrderedGroup id="ro1511970868974">
+                <RegionRefIndexed index="0" regionRef="r0"/>
+                <RegionRefIndexed index="1" regionRef="r1"/>
+                <RegionRefIndexed index="2" regionRef="r2"/>
+                <RegionRefIndexed index="3" regionRef="r3"/>
+                <RegionRefIndexed index="4" regionRef="r4"/>
+            </OrderedGroup>
+        </ReadingOrder>
         <TextRegion id="r0" type="marginalia">
             <Coords
                 points="1125,1416 1125,1426 1124,1427 1100,1427 1099,1426 1099,1419 1098,1418 1067,1418 1065,1420 1065,1426 1064,1427 1026,1427 1025,1426 1025,1419 1024,1418 964,1418 963,1419 963,1537 1039,1537 1040,1538 1040,1542 1043,1545 1045,1545 1046,1546 1084,1546 1085,1545 1086,1545 1087,1544 1088,1544 1089,1542 1089,1541 1090,1540 1090,1538 1091,1537 1192,1537 1192,1490 1191,1489 1191,1488 1190,1487 1189,1487 1188,1486 1171,1486 1170,1485 1170,1479 1171,1478 1192,1478 1192,1431 1191,1430 1191,1429 1190,1428 1189,1428 1188,1427 1171,1427 1170,1426 1170,1420 1168,1418 1159,1418 1158,1417 1158,1416"/>
@@ -62,7 +71,7 @@
             <TextLine id="r4_l0">
                 <Coords points="53,283 896,283 896,313 53,313"/>
             </TextLine>
-            <TextLine id="r4_l1" comments="My comment: one of the greatest lines in literature." >
+            <TextLine id="r4_l1" comments="My comment: one of the greatest lines in literature.">
                 <Coords points="53,342 896,342 896,372 53,372"/>
                 <TextEquiv index="0">
                     <Unicode>Text Text Text Text Text this is ground truth</Unicode>
@@ -71,7 +80,8 @@
             <TextLine id="r4_l2">
                 <Coords points="53,401 896,401 896,431 53,431"/>
             </TextLine>
-            <TextLine id="r4_l3" comments="comments:&lt;br&gt;- may contain new lines&lt;br&gt;- are saved automatically when leaving the comments field&lt;br&gt;- create new comment to any line with Shift+Insert">
+            <TextLine id="r4_l3"
+                comments="comments:&lt;br&gt;- may contain new lines&lt;br&gt;- are saved automatically when leaving the comments field&lt;br&gt;- create new comment to any line with Shift+Insert">
                 <Coords points="53,460 896,460 896,490 53,490"/>
                 <TextEquiv index="3">
                     <Unicode>Test Test Test Test Test said some OCR engine</Unicode>

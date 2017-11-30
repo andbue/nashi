@@ -15,11 +15,11 @@ polygon.empty {fill:Salmon;}
 polygon.ocr {fill:Blue;}
 polygon.gt {fill:Green;}
 
-#editor {position: absolute;}
+#editor {position: absolute; background:White;}
 #svg0 {display: none;}
 #inputbox {display:none; margin-bottom: 2px; font-family: Andron Scriptor Web;}
 #inputline {border:solid 2px white; background:White; white-space:nowrap;}
-#commentline {min-height: 1.25em; display: none; border:solid 2px white; background:Lightyellow;}
+#commentline {min-height: 1.25em; display: none; border:solid 2px white; background:Lightyellow; direction:ltr}
 #vkeyboard {display:none;}
 /*#inputline:focus {outline: solid 2px red;}*/
 </style>
@@ -68,7 +68,9 @@ function togglediv(min_x, max_x, min_y, max_y) {
     inputbox.style.display = inputbox.style.display == "none" ? "block" : "none";
     if ($("#inputbox").style.direction == "rtl"){
         inputbox.style.marginRight = $("#image").getAttribute("width") - max_x + "px";
+        inputbox.style.marginLeft = "0px";
     } else {
+        inputbox.style.marginRight = "0px";
         inputbox.style.marginLeft = min_x + "px";
     }
     if (max_y != currentsplit){
@@ -227,12 +229,13 @@ function initregions() {
 // event handler for pagexml request
 function pagexmlOnload() {
     pagexml = this.responseXML;
-    var direction = this.direction;
+    var folder = this.filename.substring(0, this.filename.lastIndexOf("/")+1);
     var imgFile = pagexml.getElementsByTagName("Page")[0].attributes["imageFilename"].nodeValue;
+    imgFile = folder +  imgFile;
     var image_x = pagexml.getElementsByTagName("Page")[0].attributes["imageWidth"].nodeValue;
     var image_y = pagexml.getElementsByTagName("Page")[0].attributes["imageHeight"].nodeValue;
     //init image width etc. and regions
-    initpage(imgFile, image_x, image_y, direction);
+    initpage(imgFile, image_x, image_y, this.direction);
     initregions();
 }
 
@@ -240,6 +243,7 @@ function pagexmlOnload() {
 function getxml(filename, direction){
     var xmlhttp=new XMLHttpRequest();
     xmlhttp.direction = direction;
+    xmlhttp.filename = filename;
     xmlhttp.open("GET", filename);
     xmlhttp.setRequestHeader("Content-Type", "text/xml");
     xmlhttp.addEventListener("load", pagexmlOnload);
@@ -278,25 +282,45 @@ function downloadxml() {
     document.body.removeChild(element);
 }
 
+// change writing direction
+function setdirection(dir) {
+    var filename = window.location.search.substring(window.location.search.lastIndexOf("pagexml=")+8).split("&")[0];
+    var ix = window.location.search.lastIndexOf("direction=");
+    if (ix > -1){
+        var searchstr  = window.location.search.substring(0, ix-1);
+    } else {
+        var searchstr = window.location.search;
+    }
+    var selfname = window.location.pathname.split("/").pop();
+    history.pushState("", "", selfname + searchstr + "&direction=" + dir);
+    $("body").style.direction = dir;
+    $("#inputbox").style.direction = dir;
+    $("#editor").style.transformOrigin = dir == "rtl" ? "top right" : "top left";
+    togglediv(0, 0, 0, 0); // to close input line and reset margins   
+}
+
 // find number in filename, add value of variable dir and load new page
 function changepage(dir) {
-    var filename = window.location.search.substring(window.location.search.lastIndexOf("pagexml=")+8).split("&")[0];
-    var numberpart = filename.match(/\d+/)[0];
-    var newnumber = (parseInt(numberpart) + dir).toString().padStart(numberpart.length, "0")
-    var newfilename = filename.slice(0, filename.indexOf(numberpart[0]))
-                        + newnumber
-                     + filename.slice(1+filename.lastIndexOf(numberpart.slice(-1)));
-    var url = document.URL.split("pagexml=");
-    var urlrest = url[1].slice(url[1].indexOf("&"));
-    var newurl = url[0] + "pagexml=" + newfilename + urlrest;
-    var selfname = window.location.pathname.split("/").pop();
-    history.pushState("", "", selfname + "?pagexml=" + newfilename + urlrest);
+    $("#inputbox").style.display = "none";
+    if (dir) {
+        var filename = window.location.search.substring(window.location.search.lastIndexOf("pagexml=")+8).split("&")[0];
+        var numberpart = filename.match(/\d+/)[0];
+        var newnumber = (parseInt(numberpart) + dir).toString().padStart(numberpart.length, "0")
+        var newfilename = filename.slice(0, filename.indexOf(numberpart[0]))
+                            + newnumber
+                         + filename.slice(1+filename.lastIndexOf(numberpart.slice(-1)));
+        var url = document.URL.split("pagexml=");
+        var urlrest = url[1].slice(url[1].indexOf("&"));
+        var selfname = window.location.pathname.split("/").pop();
+        history.pushState("", "", selfname + "?pagexml=" + newfilename + urlrest);
+    }
     var [filename, direction] = uriparams();
     while ($("#group").childElementCount > 1){
         $("#group").removeChild($("#group").getElementsByTagName("a")[0])    
     }
     $("#image").removeAttribute("href")
-    getxml(filename, direction);    
+    getxml(filename, direction);
+    splitsvg($("#image").height.baseVal.value);
 }
 
 function reload(e) {
@@ -359,6 +383,12 @@ function shortcuts(e) {
         }
 
     if (e.code == "Tab"){
+        // save comments
+        if ($("#commentline").style.display != "none"){
+            savecomment();
+            // prevent subsequent blur event from saving next line
+            $("#commentline").setAttribute("dontsave", "true");
+        }    
         var cur = $("#inputline").getAttribute("currentid")
         var link = document.getElementById(cur).parentElement
         // End of page shout be caught here, not in clickline
@@ -383,15 +413,23 @@ function shortcuts_global(e) {
     if (e.code == "KeyS" && e.ctrlKey){
         e.preventDefault();
         downloadxml();
-        }
+    }
     if (e.code == "PageDown" && e.shiftKey){
         e.preventDefault();
         changepage(1);
-        }
+    }
     if (e.code == "PageUp" && e.shiftKey){
         e.preventDefault();
         changepage(-1);
-        }
+    }
+    if (e.code == "ArrowRight" && e.shiftKey){
+        e.preventDefault();
+        setdirection("rtl");
+    }
+    if (e.code == "ArrowLeft" && e.shiftKey){
+        e.preventDefault();
+        setdirection("ltr");
+    }
 }
 
 //
