@@ -8,18 +8,19 @@
 
 <style>
 body { background:WhiteSmoke; overflow:auto;}
-polygon {opacity: .2}
 
+polygon {opacity: .2}
 /*Colours for line polygons. Order is important for overwrites!*/
 polygon.empty {fill:Salmon;}
 polygon.ocr {fill:Blue;}
 polygon.gt {fill:Green;}
 
+#editor {position: absolute;}
 #svg0 {display: none;}
 #inputbox {display:none; margin-bottom: 2px; font-family: Andron Scriptor Web;}
 #inputline {border:solid 2px white; background:White; white-space:nowrap;}
-#vkeyboard {display:none;}
 #commentline {min-height: 1.25em; display: none; border:solid 2px white; background:Lightyellow;}
+#vkeyboard {display:none;}
 /*#inputline:focus {outline: solid 2px red;}*/
 </style>
 
@@ -47,9 +48,9 @@ function splitsvg(y) {
     var img_x = $("#image").getAttribute("width");
     var img_y = $("#image").getAttribute("height");
     $("#svg1").setAttribute("viewBox", "0,0,"+img_x+"," + y);
-    $("#svg1").setAttribute("height", y);
+    $("#svg1").setAttribute("height", y + "px");
     $("#svg2").setAttribute("viewBox", "0,"+y+","+img_x+","+img_y);
-    $("#svg2").setAttribute("height", parseInt(img_y)-parseInt(y));
+    $("#svg2").setAttribute("height", parseInt(img_y)-parseInt(y) + "px");
 }
 
 // resize font size to improve alignment between text and image
@@ -188,6 +189,7 @@ function initpage(file, x, y, direction) {
     $('#image').setAttributeNS(xlinkns,'href',file);
     // init split svgs
     $("#svg1").setAttribute("viewBox", "0,0,+"+x+"," + y);
+    $("#svg1").setAttribute("preserveAspectRatio", "xMinYMin slice");
     $("#svg2").setAttribute("width", x);
     $("#svg2").setAttribute("height", "0");
     $("#svg2").setAttribute("preserveAspectRatio", "xMinYMin slice");
@@ -423,7 +425,7 @@ function main() {
         <div id="inputbox">
             <span id="inputline" contenteditable="true"></span>
             <span id="commentline" contenteditable="true"></span>
-            <div id="vkeyboard"></div>
+            <span id="vkeyboard"></span>
         </div>
         <!-- lower part of svg -->
             <svg id="svg2"><use xlink:href="#group"/></svg>
