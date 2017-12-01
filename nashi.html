@@ -20,7 +20,7 @@ polygon.gt {fill:Green;}
 #inputbox {display:none; margin-bottom: 2px; font-family: Andron Scriptor Web;}
 #inputline {border:solid 2px white; background:White; white-space:nowrap;}
 #commentline {min-height: 1.25em; display: none; border:solid 2px white; background:Lightyellow; direction:ltr}
-#vkeyboard {display:none;}
+#vkeyboard {display:none; font-size=150%}
 /*#inputline:focus {outline: solid 2px red;}*/
 </style>
 
@@ -406,8 +406,12 @@ function shortcuts(e) {
     if (e.code == "Enter" && e.shiftKey){
         e.preventDefault();
         savetext();
-        }
+    }
 
+    if (e.code == "Enter" && document.activeElement.id == "inputline"){
+        e.preventDefault();
+    }
+    
     if (e.code == "Tab"){
         // save comments
         if ($("#commentline").style.display != "none" && document.activeElement.id == "commentline"){
