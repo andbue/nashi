@@ -98,7 +98,8 @@ function togglediv(min_x, max_x, min_y, max_y) {
     if (max_y != currentsplit){
         splitsvg(max_y);
         inputbox.style.display = "block";
-        inputbox.style["font-size"] = (max_y-min_y)*0.6 + "px";
+        var scale = $("#inputbox").style.direction == "rtl" ? 0.6 : 1.1;
+        inputbox.style["font-size"] = (max_y-min_y)*scale + "px";
 	if ($('#inputline').textContent) {
             resizefont(max_x-min_x);
         }
