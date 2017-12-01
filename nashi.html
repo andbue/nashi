@@ -160,15 +160,12 @@ function savetext() {
 
 // save comment (@ blur of comment line)
 function savecomment(e) {
-    console.log("dontsave: "+ $("#commentline").getAttribute("dontsave"))
     if ($("#commentline").getAttribute("dontsave")){
         // saving already done in savetext()
         $("#commentline").removeAttribute("dontsave");
-        console.log("dontsave removed")
     } else {
         var cur = inputline.getAttribute("currentid");
         var comment = $("#commentline").innerHTML;
-        console.log("To XML, Line " + cur + " Text: " + comment );
         if (comment) {
             pagexml.getElementById(cur).setAttribute("comments", comment);
         } else {
