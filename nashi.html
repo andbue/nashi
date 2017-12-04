@@ -15,11 +15,10 @@ polygon.empty {fill:Salmon;}
 polygon.ocr {fill:Blue;}
 polygon.gt {fill:Green;}
 
-#editor {position: absolute; background:White;}
+#editor {position: absolute; background: white; width: 880px;}
 #svg0 {display: none;}
-#inputbox {display:none; margin-bottom: 2px; font-family: Andron Scriptor Web;}
+#inputbox {display:none; background: whitesmoke; padding: 2px; font-family: Andron Scriptor Web;}
 #inputline {
-	border:solid 2px white;
 	background:White;
 	white-space:nowrap;
 	padding-left:1px;
@@ -28,13 +27,12 @@ polygon.gt {fill:Green;}
 #commentline {	
 	min-height: 1.25em; 
 	display: none;
-	border:solid 2px white;
-	background:Lightyellow;
-	direction:ltr;
-	padding-left:1px;
-	padding-right:1px;
+	background: lightyellow;
+	direction: ltr;
+	padding-left: 1px;
+	padding-right: 1px;
 }
-#vkeyboard {display:none; font-size=150%}
+#vkeyboard {display:none; font-size:150%}
 /*#inputline:focus {outline: solid 2px red;}*/
 </style>
 
@@ -83,10 +81,11 @@ function $(sel) {
 function splitsvg(y) {
     var img_x = $("#image").getAttribute("width");
     var img_y = $("#image").getAttribute("height");
+    var scale = $("#editor").offsetWidth / img_x;
     $("#svg1").setAttribute("viewBox", "0,0,"+img_x+"," + y);
-    $("#svg1").setAttribute("height", y + "px");
+    $("#svg1").setAttribute("height", Math.round(scale * y));
     $("#svg2").setAttribute("viewBox", "0,"+y+","+img_x+","+img_y);
-    $("#svg2").setAttribute("height", parseInt(img_y)-parseInt(y) + "px");
+    $("#svg2").setAttribute("height", Math.round(scale * (img_y-y)));
 }
 
 // resize font size to improve alignment between text and image
@@ -98,27 +97,27 @@ function resizefont(len) {
 
 // toggle visibility of input and set position under line
 function togglediv(min_x, max_x, min_y, max_y) {
-    max_y++;
-    var currentsplit = $("#svg1").viewBox.baseVal["height"];
+    var currentsplit = $("#svg1").viewBox.baseVal.height;
     var inputbox = $("#inputbox");
+    var scale = $("#editor").offsetWidth / $("#image").getAttribute("width");
     inputbox.style.display = inputbox.style.display == "none" ? "block" : "none";
     if ($("#inputbox").style.direction == "rtl"){
-        inputbox.style.marginRight = $("#image").getAttribute("width") - max_x + "px";
-        inputbox.style.marginLeft = "0px";
+        inputbox.style.paddingRight = scale * ($("#image").getAttribute("width") - max_x) + "px";
+        inputbox.style.paddingLeft = "2px";
     } else {
-        inputbox.style.marginRight = "0px";
-        inputbox.style.marginLeft = min_x + "px";
+        inputbox.style.paddingRight = "2px";
+        inputbox.style.paddingLeft = scale * min_x + "px";
     }
     if (max_y != currentsplit){
         splitsvg(max_y);
         inputbox.style.display = "block";
-        var scale = $("#inputbox").style.direction == "rtl" ? 0.6 : 1.1;
-        inputbox.style["font-size"] = (max_y-min_y)*scale + "px";
+        var scalefont = $("#inputbox").style.direction == "rtl" ? 0.6 : 1.1;
+        inputbox.style["font-size"] = (max_y-min_y)*scalefont * scale + "px";
 	if ($('#inputline').textContent) {
-            resizefont(max_x-min_x);
+            resizefont(scale * (max_x-min_x));
         }
     } else {
-        splitsvg(0);
+        splitsvg($("#image").getAttribute("height"));
     }
 }
 
@@ -215,21 +214,18 @@ function savecomment(e) {
 function initpage(file, x, y, direction) {
     $("body").style.direction = direction;
     $("#inputbox").style.direction = direction;
-    $("#editor").style.width = x + "px";
-    // scale image to 880px width
-    var scale = 880 / parseInt(x);
-    $("#editor").style.transformOrigin = direction == "rtl" ? "top right" : "top left";
-    $("#editor").style.transform = "scale("+scale+")";
     $('#image').setAttribute("x","0"); 
     $('#image').setAttribute("y","0");
     $('#image').setAttribute("width",x);
     $('#image').setAttribute("height",y);
-    var xlinkns = $('#svg0').attributes["xmlns:xlink"].value;
-    $('#image').setAttributeNS(xlinkns,'href',file);
+    $('#image').setAttribute('href', file);
     // init split svgs
+    var scale = $("#editor").offsetWidth / x;
+    $("#svg1").setAttribute("width", scale * x)
+    $("#svg1").setAttribute("height", scale * y)
     $("#svg1").setAttribute("viewBox", "0,0,+"+x+"," + y);
     $("#svg1").setAttribute("preserveAspectRatio", "xMinYMin slice");
-    $("#svg2").setAttribute("width", x);
+    $("#svg2").setAttribute("width", scale * x);
     $("#svg2").setAttribute("height", "0");
     $("#svg2").setAttribute("preserveAspectRatio", "xMinYMin slice");
 }
@@ -334,7 +330,6 @@ function setdirection(dir) {
     history.pushState("", "", selfname + searchstr + "&direction=" + dir);
     $("body").style.direction = dir;
     $("#inputbox").style.direction = dir;
-    $("#editor").style.transformOrigin = dir == "rtl" ? "top right" : "top left";
     togglediv(0, 0, 0, 0); // to close input line and reset margins   
 }
 
@@ -501,11 +496,11 @@ function main() {
 <body onload="main();">
     <div id="editor">
         <!-- invisible svg -->
-        <svg id="svg0" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"> 
+        <svg id="svg0" xmlns="http://www.w3.org/2000/svg"> 
             <symbol id="group"><image id="image" height="0px" width="0px"/></symbol>
         </svg>
         <!-- upper part of svg -->
-        <svg id="svg1"><use xlink:href="#group"/></svg>
+        <svg id="svg1"><use href="#group"/></svg>
         <!-- text input -->
         <div id="inputbox">
             <span id="inputline" contenteditable="true"></span>
@@ -513,7 +508,7 @@ function main() {
             <span id="vkeyboard"></span>
         </div>
         <!-- lower part of svg -->
-            <svg id="svg2"><use xlink:href="#group"/></svg>
+        <svg id="svg2"><use href="#group"/></svg>
     </div> 
 </body>
 </html>
