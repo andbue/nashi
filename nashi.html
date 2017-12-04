@@ -363,7 +363,7 @@ function shortcuts(e) {
         $("#commentline").focus();
     }
 
-    if (e.code.startsWith("Digit") && e.shiftKey && e.altKey){
+    if (e.code.startsWith("Digit") && $("#vkeyboard").style.display != "none"){
         e.preventDefault();
         var sel = window.getSelection();
         var pos = sel.focusOffset -1;
@@ -386,7 +386,7 @@ function shortcuts(e) {
 
     }
 
-    if (e.code == "AltLeft" && e.shiftKey){
+    if (e.code == "Insert" && e.shiftKey){
         e.preventDefault();
         var sel = window.getSelection();
         var pos = sel.focusOffset -1;
@@ -434,7 +434,7 @@ function shortcuts(e) {
 
 // Keyup shortcut to close toggle virtual keyboard
 function shortcuts_up(e) {
-    if (e.code == "AltLeft"){
+    if (e.code == "Insert" && $("#vkeyboard").style.display != "none"){
         $("#vkeyboard").style.display = "none";
     }
 }

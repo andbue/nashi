@@ -11,7 +11,7 @@ Some bits of javascript to transcribe scanned pages using PageXML. Both ltr and 
 ### Keyboard shortcuts in the text input area
 - Tab/Shift+Tab switches to the next/previous input
 - Shift+Enter saves the edits for the current line
-- Shift+Alt shows an additional range of characters to select as an alternative to the character next to the cursor. Input one of them using the corresponding number. 
+- Shift+Insert shows an additional range of characters to select as an alternative to the character next to the cursor. Input one of them using the corresponding number. 
 - Shift+ArrowDown opens a new comment field (Shift+ArrowUp switches back to the transcription line)
 ### Global keyboard shortcuts
 - Shift+PageUp/PageDown loads the next/previous page if the filenames of your PageXML files contain the number
