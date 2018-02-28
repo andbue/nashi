@@ -9,14 +9,25 @@
 <style>
 body { background:WhiteSmoke; overflow:auto;}
 
-polygon {opacity: .2}
+polygon {opacity: .2;}
+
 /*Colours for line polygons. Order is important for overwrites!*/
 polygon.empty {fill:Salmon;}
 polygon.ocr {fill:Blue;}
 polygon.gt {fill:Green;}
+polygon.edit {fill:Red;}
+polygon.region{opacity: 0;}
+polygon.region:hover {cursor:crosshair;}
+
+circle.pointhandle {opacity:1;}
+circle.pointhandle:hover {cursor:move;}
+circle.lastmoved {fill:Red;}
+
+line.linehandle:hover {cursor:copy;}
 
 #editor {position: absolute; background: white; width: 880px;}
-#svg0 {display: none;}
+#svg0 {display:none;}
+
 #inputbox {display:none; background: whitesmoke; padding: 2px; font-family: Andron Scriptor Web;}
 #inputline {
 	background:White;
@@ -76,6 +87,264 @@ virtualkeyboard = {
 function $(sel) {
   return document.querySelector(sel);
 }
+
+/////// EDIT MODE
+// delete line from pagexml
+function deleteline(id){
+	var line = pagexml.getElementById(id);
+	line.parentElement.removeChild(line);
+}
+
+// create new line in pagexml
+function createline(id, rid){
+    var ns = pagexml.firstChild.attributes.xmlns.value;
+	var regionxml = pagexml.getElementById(rid);
+	var newline = pagexml.createElementNS(ns, "TextLine");
+	newline.setAttribute("id", id);
+	var newcoords = pagexml.createElementNS(ns, "Coords");
+	newcoords.setAttribute("points", $("#"+id).getAttribute("points"));
+	newline.appendChild(newcoords);
+	regionxml.appendChild(newline);
+}
+
+// write points to pagexml
+function writepoints(id){
+	var coordsxml = pagexml.getElementById(id).getElementsByTagName("Coords")[0];
+	coordsxml.setAttribute("points", $("#"+id).getAttribute("points"));
+}
+
+// calculate point on image from event
+function getimgpoint(evt){
+	var p = $("#svg0").createSVGPoint();
+	p.x = evt.clientX
+	p.y = evt.clientY
+	var m = evt.target.getScreenCTM();
+	p = p.matrixTransform(m.inverse());
+	p.x = Math.round(p.x);
+	p.y = Math.round(p.y);
+	return p;
+}
+
+// remove all point handles
+function removeallpointhandles(){
+	var pgroup = $("#pointhandles");
+	if (pgroup){
+		$("#group").removeChild(pgroup);
+	}
+}
+
+// move point handle around
+function dragcircle(evt, pid){
+	var handle = document.getElementsByClassName("movehandle")[0];
+	var imgcursor = getimgpoint(evt);
+	handle.setAttribute("cx", imgcursor.x);
+	handle.setAttribute("cy", imgcursor.y);
+	activeppoint.x = imgcursor.x;
+	activeppoint.y = imgcursor.y;
+}
+
+// delete point
+function delpoint(point){
+	$("#pointhandles").removeChild(point);
+	var plist = document.getElementsByClassName("edit")[0].points;
+	for (var i=0; i<plist.length; i++){
+		if (plist[i] == activeppoint){plist.removeItem(i);}
+	}
+	if (plist.length < 2){
+		delpolygon($("#"+document.getElementsByClassName("edit")[0].id));
+	} else {
+		writepoints(document.getElementsByClassName("edit")[0].id);
+		editpoly($("#"+document.getElementsByClassName("edit")[0].id));
+	}
+}
+
+// delete polygon
+function delpolygon(polygon){
+	removeallpointhandles();
+	while (document.getElementsByClassName("linehandle").length){
+		$("#pointhandles").removeChild(document.getElementsByClassName("linehandle")[0]);
+	}
+	$("#group").removeChild(polygon);
+	deleteline(polygon.id);
+}
+
+// create new polygon
+function drawline(evt, pid){
+	var pp = $("#"+pid).points;
+	var pos = getimgpoint(evt);
+	pp[1].x = pp[2].x = pos.x;
+	pp[3].y = pp[2].y = pos.y;
+}
+
+// on mouseup (region)
+function unclickregion(evt, pid, rid){
+	$("#group").removeAttribute("onmousemove");
+	$("#group").removeAttribute("onmouseup");
+	createline(pid, rid);
+	editpoly($("#"+pid));
+}
+
+// on mousedown (region)
+function clickregion(evt, region){
+	var startp = getimgpoint(evt);
+	var existing = [];
+	var lengths = [];
+	for (p of $("#group").getElementsByTagName("polygon")){
+		if (p.id.startsWith(evt.target.id + "_")){
+			existing.push(p.id.split("_l")[1]);
+			lengths.push(p.id.split("_l")[1].length);
+		}
+	}
+	var lineno = Math.max(...existing) + 1;
+	var len = Math.min(...lengths);
+    var svgns = $("#svg0").attributes.xmlns.value;
+    
+	var newelement = document.createElementNS(svgns, 'polygon');
+	newelement.setAttribute("id",evt.target.id + "_l" + lineno.toString().padStart(len, "0"));
+	console.log(newelement);
+	newelement.setAttribute("points",([startp.x,startp.y].join()+" ").repeat(4).slice(0,-1));
+	newelement.setAttribute("onclick","editpoly(this)");
+	newelement.classList.add("line");
+	newelement.classList.add("empty");
+	$("#group").appendChild(newelement);
+	$("#group").setAttribute("onmousemove","drawline(evt, '"+newelement.id+"')");
+	$("#group").setAttribute("onmouseup","unclickregion(evt, '"+newelement.id+"', '"+region.id+"')");
+}
+
+// on mouseup (point)
+function unclickpoint(evt, pid){
+	$("#group").removeAttribute("onmousemove");
+	$("#group").removeAttribute("onmouseup");
+	$("#editor").style.cursor = "auto";
+	for (p of document.getElementsByClassName("movehandle")){p.classList.remove("movehandle");}
+	while (document.getElementsByClassName("linehandle").length){
+		$("#pointhandles").removeChild(document.getElementsByClassName("linehandle")[0]);
+	}
+	linehandles($("#"+pid), $("#pointhandles"));
+	writepoints(pid);
+}
+
+// on mousdown (point)
+function clickpoint(evt, handle, pid){
+	for (p of $("#"+pid).points){
+		if (p.x == handle.getAttribute("cx") && p.y == handle.getAttribute("cy")){
+			var polypoint = p;
+		} 
+	}
+	if (polypoint == null){return null};
+	$("#"+handle.id).classList.add("movehandle");
+	for (p of document.getElementsByClassName("lastmoved")){p.classList.remove("lastmoved");}
+	$("#"+handle.id).classList.add("lastmoved");
+	$("#group").setAttribute("onmouseup","unclickpoint(evt, '"+pid+"')");
+	$("#group").setAttribute("onmousemove", "dragcircle(evt, '"+pid+"')");
+	activepoint = handle;
+	activeppoint = polypoint;
+	$("#editor").style.cursor = "move";
+}
+
+// on mousedown (border)
+function clickborder(evt, line, pid, pno){
+	var pos = getimgpoint(evt);
+	var polygon = $("#"+pid);
+	var svgns = $("#svg0").attributes.xmlns.value;
+	var newelement = document.createElementNS(svgns, 'circle');
+	var radius = 0.3 / ($("#editor").offsetWidth / $("#image").getAttribute("width")) + "em";
+	newelement.setAttribute("id", pid+"_p"+polygon.points.length);
+	newelement.setAttribute("class","pointhandle");
+	newelement.setAttribute("cx",pos.x);
+	newelement.setAttribute("cy",pos.y);
+	newelement.setAttribute("r", radius);
+	newelement.setAttribute("onmousedown","clickpoint(evt, this, '"+pid+"')");
+	$("#pointhandles").appendChild(newelement);
+
+	polygon.points.insertItemBefore(pos, pno);
+	clickpoint(evt, newelement, pid);
+}
+
+// draw handles on polygon border
+function linehandles(polygonin, groupin){
+	var group = $("#"+groupin.id);
+	var svgns = $("#svg0").attributes.xmlns.value;
+	var polygon = $("#"+polygonin.id);
+	var radius = 0.3 / ($("#editor").offsetWidth / $("#image").getAttribute("width")) + "em";
+	for (var n = 0; n < polygon.points.length; n++){
+		var newelement = document.createElementNS(svgns, 'line');
+		newelement.setAttribute("class", "linehandle");
+		newelement.setAttribute("x1", polygon.points[n].x);
+		newelement.setAttribute("y1", polygon.points[n].y);
+		newelement.setAttribute("x2", polygon.points[(n+1)%polygon.points.length].x);
+		newelement.setAttribute("y2", polygon.points[(n+1)%polygon.points.length].y);		
+		newelement.setAttribute("stroke-width", radius);
+		newelement.setAttribute("stroke", "transparent");
+		newelement.setAttribute("onmousedown","clickborder(evt, this, '"+polygon.id+"', '"+((n+1)%polygon.points.length)+"')");
+		group.insertBefore(newelement, group.children[0]);
+	}
+}
+
+// active handles on polygon; on click (polygon)
+function editpoly(polygon) {
+	var pid = polygon.getAttribute("id");
+	var svgns = $("#svg0").attributes.xmlns.value;
+	for (p of document.getElementsByClassName("edit")){p.classList.remove("edit");}
+	$("#"+polygon.id).classList.add("edit");
+	removeallpointhandles();
+	var newgroup = document.createElementNS(svgns, 'g');
+	newgroup.setAttribute("id","pointhandles");
+	$("#group").appendChild(newgroup);
+	linehandles(polygon, newgroup);
+	var radius = 0.3 / ($("#editor").offsetWidth / $("#image").getAttribute("width")) + "em";
+	for (var n = 0; n < polygon.points.length; n++){
+		var newelement = document.createElementNS(svgns, 'circle');
+		newelement.setAttribute("id", pid+"_p"+n);
+		newelement.setAttribute("class","pointhandle");
+		newelement.setAttribute("cx",polygon.points[n].x);
+		newelement.setAttribute("cy",polygon.points[n].y);
+		newelement.setAttribute("r", radius);
+		newelement.setAttribute("onmousedown","clickpoint(evt, this, '"+pid+"')");
+		newgroup.appendChild(newelement);
+	}
+}
+
+// initialize polygons around text regions
+function inittextregions() {
+    //textregions from file
+    var svgns = $("#svg0").attributes.xmlns.value;
+    var textregions = pagexml.getElementsByTagName("TextRegion");
+    for (var i=0; i<textregions.length; i++){
+        var points = textregions[i].getElementsByTagName("Coords")[0].getAttribute("points");
+        var id = textregions[i].id
+        var newelement = document.createElementNS(svgns, 'polygon');
+        newelement.setAttribute("id",id);
+        newelement.setAttribute("points",points);
+        newelement.setAttribute("onmousedown","clickregion(evt, this)");
+        newelement.classList.add("region");
+        $("#group").insertBefore(newelement, $("#group").children[1]);
+    }
+}
+
+// toggle editmode (mode=true on, mode=false off)
+function editmode(mode) {
+	for (var p of document.getElementsByClassName("line")){
+		if (mode) {
+			p.setAttribute("onclick","editpoly(this)");
+			inittextregions();
+		} else {
+			removeallpointhandles();
+			for (p of document.getElementsByClassName("edit")){
+				p.classList.remove("edit");
+			}
+			for (p of document.getElementsByClassName("line")){
+				p.setAttribute("onclick","clickline(this)");
+			}
+			while (document.getElementsByClassName("region").length){
+				$("#group").removeChild(document.getElementsByClassName("region")[0]);
+			}
+		}
+	} 	
+}
+
+/////// END EDIT MODE
+
 
 // show svg0 in svg1 up to y, the rest in svg2
 function splitsvg(y) {
@@ -137,7 +406,7 @@ function get_lowest_index(lineid) {
 function clickline(link) {
     var inputline = $("#inputline");
     if (link==null){return false;}
-    var polygon = link.firstChild;
+    var polygon = link;
     if (polygon==null){return false;}
     // get points as array
     var points = polygon.points;
@@ -190,7 +459,7 @@ function savetext() {
         $("#commentline").setAttribute("dontsave", "true");
     }    
 
-    clickline(document.getElementById(cur).parentElement.nextSibling);
+    clickline(document.getElementById(cur).nextSibling);
     document.getElementById(cur).classList.add("gt");
 }
 
@@ -240,22 +509,17 @@ function initregions() {
         var id = textregions[i].id
         var textequiv = textregions[i].querySelector('TextEquiv[index="0"]');
         var ocr = textregions[i].querySelector('TextEquiv');
-        // create links
-        var newlink = document.createElementNS(svgns, 'a');
-        newlink.setAttribute("onclick","clickline(this);return false;");
-        newlink.setAttribute("href","#"+id);
-        newlink.setAttribute("title","Edit line "+id);
         // create polygons around lines
         var newelement = document.createElementNS(svgns, 'polygon');
         newelement.setAttribute("id",id);
         newelement.setAttribute("points",points);
+        newelement.setAttribute("onclick","clickline(this)");
         newelement.classList.add("line");
         var status = "empty";
         if (textequiv){ status = "gt";
             } else if (ocr){status = "ocr";}
         newelement.classList.add(status);
-        newlink.appendChild(newelement);
-        $("#group").appendChild(newlink);
+        $("#group").appendChild(newelement);
     }
 }
 
@@ -432,7 +696,7 @@ function shortcuts(e) {
             $("#commentline").setAttribute("dontsave", "true");
         }    
         var cur = $("#inputline").getAttribute("currentid")
-        var link = document.getElementById(cur).parentElement
+        var link = document.getElementById(cur)
         // End of page shout be caught here, not in clickline
         if (e.shiftKey){
                 clickline(link.previousSibling);
@@ -472,6 +736,18 @@ function shortcuts_global(e) {
         e.preventDefault();
         setdirection("ltr");
     }
+    if (e.code == "KeyE" && e.ctrlKey){
+        e.preventDefault();
+        editmode(document.getElementsByClassName("line")[0].attributes.onclick.value.startsWith("clickline"));
+    }
+    if (e.code == "Delete" && document.getElementsByClassName("lastmoved").length){
+		e.preventDefault();
+		delpoint(document.getElementsByClassName("lastmoved")[0]);
+	} else if (e.code == "Delete" && document.getElementsByClassName("edit").length){
+		e.preventDefault();
+		delpolygon(document.getElementsByClassName("edit")[0]);
+	}
+
 }
 
 //
@@ -496,8 +772,8 @@ function main() {
 <body onload="main();">
     <div id="editor">
         <!-- invisible svg -->
-        <svg id="svg0" xmlns="http://www.w3.org/2000/svg"> 
-            <symbol id="group"><image id="image" height="0px" width="0px"/></symbol>
+        <svg id="svg0" xmlns="http://www.w3.org/2000/svg">
+            <g id="group"><image id="image" height="0px" width="0px"/></g>
         </svg>
         <!-- upper part of svg -->
         <svg id="svg1"><use href="#group"/></svg>
