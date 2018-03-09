@@ -638,7 +638,8 @@ function shortcuts(e) {
         $("#commentline").focus();
     }
 
-    if (e.code.startsWith("Digit") && $("#vkeyboard").style.display != "none"){
+    if (e.code.startsWith("Digit") && $("#vkeyboard").style.display == 
+"block"){
         e.preventDefault();
         var sel = window.getSelection();
         var pos = sel.focusOffset -1;
