@@ -16,7 +16,7 @@ Some bits of javascript to transcribe scanned pages using PageXML. Both ltr and 
 ### Global keyboard shortcuts
 - Ctrl+Shift Zooms in to line width
 - Shift+PageUp/PageDown loads the next/previous page if the filenames of your PageXML files contain the number.
-- Shift+ArrowLeft/ArrowRight changes orientation and input direction to ltr/rtl.
+- Ctrl+Shift+ArrowLeft/ArrowRight changes orientation and input direction to ltr/rtl.
 - Ctrl+S downloads the PageXML file.
 - Ctrl+E enters or exits polygon edit mode.
 ### Edit mode
