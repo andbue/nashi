@@ -201,7 +201,6 @@ function clickregion(evt, region){
     
 	var newelement = document.createElementNS(svgns, 'polygon');
 	newelement.setAttribute("id",evt.target.id + "_l" + lineno.toString().padStart(len, "0"));
-	console.log(newelement);
 	newelement.setAttribute("points",([startp.x,startp.y].join()+" ").repeat(4).slice(0,-1));
 	newelement.setAttribute("onclick","editpoly(this)");
 	newelement.classList.add("line");
@@ -281,6 +280,12 @@ function linehandles(polygonin, groupin){
 	}
 }
 
+function select(evt){
+	if (evt.shiftKey){
+		console.log(evt);
+	}
+}
+
 // active handles on polygon; on click (polygon)
 function editpoly(polygon) {
 	var pid = polygon.getAttribute("id");
@@ -290,6 +295,7 @@ function editpoly(polygon) {
 	removeallpointhandles();
 	var newgroup = document.createElementNS(svgns, 'g');
 	newgroup.setAttribute("id","pointhandles");
+	$("#group").setAttribute("onmousedown", "select(evt)");
 	$("#group").appendChild(newgroup);
 	linehandles(polygon, newgroup);
 	var radius = 0.3 / ($("#editor").offsetWidth / $("#image").getAttribute("width")) + "em";
@@ -345,6 +351,36 @@ function editmode(mode) {
 
 /////// END EDIT MODE
 
+function zoomsvg() {
+	var points = $("#"+$("#inputline").getAttribute("currentid")).points;
+	var scale = $("#editor").offsetWidth / $("#image").getAttribute("width");
+	var xarr = [];
+    var yarr = [];
+    for (i=0;i<points.length;i++){
+            xarr.push(points[i]["x"]);
+        yarr.push(points[i]["y"]);
+    }
+    var xmin = Math.min.apply(Math, xarr);
+    var xmax = Math.max.apply(Math, xarr);
+    var ymin = Math.min.apply(Math, yarr);
+    var ymax = Math.max.apply(Math, yarr);
+    $("#svg1").viewBox.baseVal.x = xmin;
+	$("#svg1").viewBox.baseVal.width = xmax-xmin;
+	if ((ymax-ymin) / (xmax-xmin) > $("#svg1").height.baseVal.value / $("#svg1").width.baseVal.value) {
+		$("#svg1").height.baseVal.value = ((ymax-ymin) / (xmax-xmin)) * $("#svg1").width.baseVal.value;
+	}
+    $("#svg2").viewBox.baseVal.x = xmin;
+	$("#svg2").viewBox.baseVal.width = xmax-xmin;	
+	
+	var newscale = $("#editor").offsetWidth / (xmax-xmin);
+	$("#inputbox").style.paddingLeft = "2px";
+	$("#inputbox").style.paddingRight = "2px";
+	var scalefont = $("#inputbox").style.direction == "rtl" ? 0.6 : 1.1;
+    $("#inputbox").style["font-size"] = (ymax-ymin)*scalefont * newscale + "px";
+	if ($("#inputline").textContent) {
+		resizefont(newscale * (xmax-xmin));
+	}
+}
 
 // show svg0 in svg1 up to y, the rest in svg2
 function splitsvg(y) {
@@ -367,24 +403,23 @@ function resizefont(len) {
 // toggle visibility of input and set position under line
 function togglediv(min_x, max_x, min_y, max_y) {
     var currentsplit = $("#svg1").viewBox.baseVal.height;
-    var inputbox = $("#inputbox");
     var scale = $("#editor").offsetWidth / $("#image").getAttribute("width");
-    inputbox.style.display = inputbox.style.display == "none" ? "block" : "none";
+    $("#inputbox").style.display = $("#inputbox").style.display == "none" ? "block" : "none";
     if ($("#inputbox").style.direction == "rtl"){
-        inputbox.style.paddingRight = scale * ($("#image").getAttribute("width") - max_x) + "px";
-        inputbox.style.paddingLeft = "2px";
+        $("#inputbox").style.paddingRight = scale * ($("#image").getAttribute("width") - max_x) + "px";
+        $("#inputbox").style.paddingLeft = "2px";
     } else {
-        inputbox.style.paddingRight = "2px";
-        inputbox.style.paddingLeft = scale * min_x + "px";
+        $("#inputbox").style.paddingRight = "2px";
+        $("#inputbox").style.paddingLeft = scale * min_x + "px";
     }
     if (max_y != currentsplit){
         splitsvg(max_y);
-        inputbox.style.display = "block";
+        $("#inputbox").style.display = "block";
         var scalefont = $("#inputbox").style.direction == "rtl" ? 0.6 : 1.1;
-        inputbox.style["font-size"] = (max_y-min_y)*scalefont * scale + "px";
-	if ($('#inputline').textContent) {
-            resizefont(scale * (max_x-min_x));
-        }
+        $("#inputbox").style["font-size"] = (max_y-min_y)*scalefont * scale + "px";
+		if ($('#inputline').textContent) {
+				resizefont(scale * (max_x-min_x));
+			}
     } else {
         splitsvg($("#image").getAttribute("height"));
     }
@@ -493,7 +528,7 @@ function initpage(file, x, y, direction) {
     $("#svg1").setAttribute("width", scale * x)
     $("#svg1").setAttribute("height", scale * y)
     $("#svg1").setAttribute("viewBox", "0,0,+"+x+"," + y);
-    $("#svg1").setAttribute("preserveAspectRatio", "xMinYMin slice");
+    $("#svg1").setAttribute("preserveAspectRatio", "xMinYMax slice");
     $("#svg2").setAttribute("width", scale * x);
     $("#svg2").setAttribute("height", "0");
     $("#svg2").setAttribute("preserveAspectRatio", "xMinYMin slice");
@@ -638,8 +673,7 @@ function shortcuts(e) {
         $("#commentline").focus();
     }
 
-    if (e.code.startsWith("Digit") && $("#vkeyboard").style.display == 
-"block"){
+    if (e.code.startsWith("Digit") && $("#vkeyboard").style.display == "block"){
         e.preventDefault();
         var sel = window.getSelection();
         var pos = sel.focusOffset -1;
@@ -717,6 +751,10 @@ function shortcuts_up(e) {
 
 // keyboard shortcuts(global
 function shortcuts_global(e) {
+	if (e.code == "Space" && e.ctrlKey){
+		zoomsvg();
+	}
+	
     if (e.code == "KeyS" && e.ctrlKey){
         e.preventDefault();
         downloadxml();
@@ -729,11 +767,11 @@ function shortcuts_global(e) {
         e.preventDefault();
         changepage(-1);
     }
-    if (e.code == "ArrowRight" && e.shiftKey){
+    if (e.code == "ArrowRight" && e.shiftKey && e.ctrlKey){
         e.preventDefault();
         setdirection("rtl");
     }
-    if (e.code == "ArrowLeft" && e.shiftKey){
+    if (e.code == "ArrowLeft" && e.shiftKey && e.ctrlKey){
         e.preventDefault();
         setdirection("ltr");
     }
