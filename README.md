@@ -22,6 +22,7 @@ Some bits of javascript to transcribe scanned pages using PageXML. Both ltr and 
 ### Edit mode
 - Click on line area to activate point handles. Points can be moved around using, new points can be created by drawing the borders between existing points.
 - If points or lines are active, they can be deleted using the "Delete"-key.
+- Hold Shift-key and draw to select multiple points
 - New text lines can be created by clicking inside an existing text region and drawing a rectangle. New lines are always added at the end of the region.
 
 ## Planned features

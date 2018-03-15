@@ -18,12 +18,16 @@ polygon.gt {fill:Green;}
 polygon.edit {fill:Red;}
 polygon.region{opacity: 0;}
 polygon.region:hover {cursor:crosshair;}
+polygon.select {fill:Black}
 
 circle.pointhandle {opacity:1;}
 circle.pointhandle:hover {cursor:move;}
 circle.lastmoved {fill:Red;}
 
 line.linehandle:hover {cursor:copy;}
+
+#selectlayer {opacity:0;}
+#selectlayer:hover {cursor:crosshair;}
 
 #editor {position: absolute; background: white; width: 880px;}
 #svg0 {display:none;}
@@ -38,7 +42,7 @@ line.linehandle:hover {cursor:copy;}
 #commentline {	
 	min-height: 1.25em; 
 	display: none;
-	background: lightyellow;
+	background: yellow;
 	direction: ltr;
 	padding-left: 1px;
 	padding-right: 1px;
@@ -150,7 +154,31 @@ function delpoint(point){
 	for (var i=0; i<plist.length; i++){
 		if (plist[i] == activeppoint){plist.removeItem(i);}
 	}
-	if (plist.length < 2){
+	if (plist.length < 3){
+		delpolygon($("#"+document.getElementsByClassName("edit")[0].id));
+	} else {
+		writepoints(document.getElementsByClassName("edit")[0].id);
+		editpoly($("#"+document.getElementsByClassName("edit")[0].id));
+	}
+}
+
+// delete all "lastmoved" points
+function delactivepoints(){
+	var phandles = document.getElementsByClassName("pointhandle");
+	for (var i = phandles.length; i--;){
+		var phandle = phandles[i];
+		if (phandle.classList.contains("lastmoved")){
+			var plist = document.getElementsByClassName("edit")[0].points;
+			for (var j=plist.length; j--;){
+				if (phandle.cx.baseVal.value === plist[j].x && phandle.cy.baseVal.value === plist[j].y){
+					plist.removeItem(j);
+				}
+			}
+		phandle.parentElement.removeChild(phandle);
+		}
+	}
+	var plist = document.getElementsByClassName("edit")[0].points;	
+	if (plist.length < 3){
 		delpolygon($("#"+document.getElementsByClassName("edit")[0].id));
 	} else {
 		writepoints(document.getElementsByClassName("edit")[0].id);
@@ -280,10 +308,44 @@ function linehandles(polygonin, groupin){
 	}
 }
 
-function select(evt){
-	if (evt.shiftKey){
-		console.log(evt);
+// delete selction rectangle
+function colselection(evt){
+	$("#pointhandles").removeChild($("#select"));
+}
+
+// draw rectangle around points and makr them ".lastmoved"
+function drawselection(evt){
+	if ($("#select")){
+		var pp = $("#select").points;
+		var pos = getimgpoint(evt);
+		pp[1].x = pp[2].x = pos.x;
+		pp[3].y = pp[2].y = pos.y;
+		var xr = [pp[0].x, pos.x].sort();
+		var yr = [pp[0].y, pos.y].sort();
+		for (var phand of document.getElementsByClassName("pointhandle")){
+			var px = phand.cx.baseVal.value;
+			var py = phand.cy.baseVal.value;
+			if (xr[0] < px && px < xr[1] && yr[0] < py && py < yr[1]){
+				phand.classList.add("lastmoved");
+			} else {
+				phand.classList.remove("lastmoved");
+			}
+		}
 	}
+}
+
+// start selecting points
+function selectpoints(evt, layer){
+	var startp = getimgpoint(evt);
+    var svgns = $("#svg0").attributes.xmlns.value;
+	var newelement = document.createElementNS(svgns, 'polygon');
+	newelement.setAttribute("id", "select");
+	newelement.setAttribute("points",([startp.x,startp.y].join()+" ").repeat(4).slice(0,-1));
+	newelement.classList.add("select");
+
+	$("#pointhandles").appendChild(newelement);
+	$("#selectlayer").setAttribute("onmouseup", "colselection(evt)");
+	$("#selectlayer").setAttribute("onmousemove", "drawselection(evt)");
 }
 
 // active handles on polygon; on click (polygon)
@@ -295,7 +357,6 @@ function editpoly(polygon) {
 	removeallpointhandles();
 	var newgroup = document.createElementNS(svgns, 'g');
 	newgroup.setAttribute("id","pointhandles");
-	$("#group").setAttribute("onmousedown", "select(evt)");
 	$("#group").appendChild(newgroup);
 	linehandles(polygon, newgroup);
 	var radius = 0.3 / ($("#editor").offsetWidth / $("#image").getAttribute("width")) + "em";
@@ -351,6 +412,7 @@ function editmode(mode) {
 
 /////// END EDIT MODE
 
+// zoom in to width of current line
 function zoomsvg() {
 	var points = $("#"+$("#inputline").getAttribute("currentid")).points;
 	var scale = $("#editor").offsetWidth / $("#image").getAttribute("width");
@@ -752,9 +814,9 @@ function shortcuts_up(e) {
 // keyboard shortcuts(global
 function shortcuts_global(e) {
 	if (e.code == "Space" && e.ctrlKey){
+		e.preventDefault();
 		zoomsvg();
 	}
-	
     if (e.code == "KeyS" && e.ctrlKey){
         e.preventDefault();
         downloadxml();
@@ -781,13 +843,33 @@ function shortcuts_global(e) {
     }
     if (e.code == "Delete" && document.getElementsByClassName("lastmoved").length){
 		e.preventDefault();
-		delpoint(document.getElementsByClassName("lastmoved")[0]);
+		delactivepoints();
+		//delpoint(document.getElementsByClassName("lastmoved")[0]);
 	} else if (e.code == "Delete" && document.getElementsByClassName("edit").length){
 		e.preventDefault();
 		delpolygon(document.getElementsByClassName("edit")[0]);
 	}
 
+	if (e.key == "Shift" && $("#pointhandles")){
+		var svgns = $("#svg0").attributes.xmlns.value;
+		var rect = document.createElementNS(svgns, 'rect');
+		rect.setAttribute("id", "selectlayer");
+		rect.setAttribute("x",0);
+		rect.setAttribute("y",0);
+		rect.setAttribute("width", $("#image").width.baseVal.value);
+		rect.setAttribute("height", $("#image").height.baseVal.value);
+		rect.setAttribute("onmousedown", "selectpoints(evt, this)");
+		$("#pointhandles").appendChild(rect);
+	}
 }
+
+function shortcuts_global_up(e) {
+	if (e.key == "Shift" && $("#selectlayer")){
+		if ($("#select")){	$("#pointhandles").removeChild($("#select"));}
+		$("#pointhandles").removeChild($("#selectlayer"));
+	}
+}
+
 
 //
 // Main function
@@ -798,6 +880,7 @@ function main() {
     $("#inputbox").addEventListener("keyup", shortcuts_up, false);
     $("#commentline").addEventListener("blur", savecomment, false);
     document.addEventListener("keydown", shortcuts_global, false);
+    document.addEventListener("keyup", shortcuts_global_up, false);
     window.onpopstate = reload;
     
     // Get filename and dir, fetch pagexml
