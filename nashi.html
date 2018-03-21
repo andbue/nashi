@@ -320,8 +320,8 @@ function drawselection(evt){
 		var pos = getimgpoint(evt);
 		pp[1].x = pp[2].x = pos.x;
 		pp[3].y = pp[2].y = pos.y;
-		var xr = [pp[0].x, pos.x].sort();
-		var yr = [pp[0].y, pos.y].sort();
+		var xr = [pp[0].x, pos.x].sort(function(a, b){return a-b});
+		var yr = [pp[0].y, pos.y].sort(function(a, b){return a-b});
 		for (var phand of document.getElementsByClassName("pointhandle")){
 			var px = phand.cx.baseVal.value;
 			var py = phand.cy.baseVal.value;
