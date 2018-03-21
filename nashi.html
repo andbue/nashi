@@ -711,7 +711,7 @@ function changepage(dir) {
     }
     var [filename, direction] = uriparams();
     while ($("#group").childElementCount > 1){
-        $("#group").removeChild($("#group").getElementsByTagName("a")[0])    
+        $("#group").removeChild($("#group").getElementsByTagName("polygon")[0])    
     }
     $("#image").removeAttribute("href")
     getxml(filename, direction);
