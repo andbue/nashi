@@ -16,9 +16,12 @@ polygon.empty {fill:Salmon;}
 polygon.ocr {fill:Blue;}
 polygon.gt {fill:Green;}
 polygon.edit {fill:Red;}
+polygon.comment {opacity: .8; fill-opacity:.2; stroke:Red;stroke-width:.4em;stroke-dasharray:5,5;}
+
 polygon.region{opacity: 0;}
 polygon.region:hover {cursor:crosshair;}
 polygon.select {fill:Black}
+
 
 circle.pointhandle {opacity:1;}
 circle.pointhandle:hover {cursor:move;}
@@ -570,8 +573,10 @@ function savecomment(e) {
         var comment = $("#commentline").innerHTML;
         if (comment) {
             pagexml.getElementById(cur).setAttribute("comments", comment);
+            $("#"+cur).classList.add("comment");
         } else {
             pagexml.getElementById(cur).removeAttribute("comments");
+            $("#"+cur).classList.remove("comment");
         }
     }
 }
@@ -606,6 +611,7 @@ function initregions() {
         var id = textregions[i].id
         var textequiv = textregions[i].querySelector('TextEquiv[index="0"]');
         var ocr = textregions[i].querySelector('TextEquiv');
+        var comments = textregions[i].getAttribute("comments");
         // create polygons around lines
         var newelement = document.createElementNS(svgns, 'polygon');
         newelement.setAttribute("id",id);
@@ -616,6 +622,9 @@ function initregions() {
         if (textequiv){ status = "gt";
             } else if (ocr){status = "ocr";}
         newelement.classList.add(status);
+        if (comments){
+			newelement.classList.add("comment");
+		}
         $("#group").appendChild(newelement);
     }
 }
