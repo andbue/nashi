@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+<div class="container" role="main">
+  {% block content %}
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for message in messages %}
+      <div class="alert alert-warning" role="alert">
+        {{ message }}
+      </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  <div class="container" style="margin-top:15px;padding:20px;">
+    <h1>Search in {{ bookname }}:</h1>
+    <form id="textsearchform" action="{{ url_for('textsearch', bookname=bookname) }}" name="textsearch_form" role="form">
+  <input type="text" name="searchterm" id="searchterm" class="form-control" id="searchTermInput" placeholder="Search term">
+  <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+
+
+  </div>
+  <div class="container" id="searchresult"></div>
+
+
+</div>
+
+{% endblock %}
+{% block styles %}
+{{super()}}
+<style>
+label {min-width: 7em;}
+body {
+  margin-top: 50px;
+}
+
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{super()}}
+<script>
+
+$("#textsearchform").submit(function(event){
+    // cancels the form submission
+    event.preventDefault();
+    $("#searchresult").html("Searching...");
+    var searchterm = $("#searchterm").val();
+    $.ajax({
+      type: "POST",
+      url: "{{ url_for('textsearch', bookname=bookname) }}",
+      contentType: 'application/json;charset=UTF-8',
+      data: JSON.stringify({
+        searchterm: searchterm
+      }),
+      success : function(data){
+        $("#searchresult").html(data);
+      }
+    });
+});
+</script>
+
+{% endblock %}

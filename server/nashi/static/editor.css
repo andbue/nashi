@@ -1,0 +1,155 @@
+/*body { background:WhiteSmoke; overflow:auto;}
+*/
+
+
+polygon {opacity: .2}
+/*Colours for line polygons. Order is important for overwrites!*/
+@keyframes blink {
+    from {fill: gray;}
+    to {fill: purple;}
+}
+polygon.empty { fill: Salmon; }
+polygon.ocr { fill: Blue; }
+polygon.gt { fill: Green; }
+polygon.saving { fill: Purple;
+    animation-name: blink;
+    animation-duration: 0.4s;
+    animation-direction: alternate;
+    animation-iteration-count: infinite
+}
+polygon.comment {
+	opacity: .6;
+	fill-opacity:.2;
+	stroke:Red;
+	stroke-width:2px;
+	stroke-dasharray:5,5;
+}
+
+
+polygon.region{opacity: 0;}
+polygon.edit {fill:Orange; opacity: 0.4; fill-opacity:.4}
+polygon.region.edit:hover {cursor:crosshair;}
+polygon.select {fill:Black}
+
+
+
+circle.pointhandle {opacity:1;}
+circle.pointhandle:hover {cursor:move;}
+circle.lastmoved {fill:Red;}
+
+line.linehandle:hover {cursor:copy;}
+
+#selectlayer {opacity:0;}
+#selectlayer:hover {cursor:crosshair;}
+
+#editor {position: absolute; background: white; width: 880px;}
+#svg0 {display: none;}
+#svg1, #svg2 {display: block;}
+#inputbox {display:none; background: whitesmoke; padding: 2px; font-family: Andron Scriptor Web;}
+#inputline {
+	background:White;
+    display: inline;
+	white-space:nowrap;
+	padding-left:1px;
+	padding-right:1px;
+}
+#commentline {
+	min-height: 1.25em;
+	display: block;
+	background: lightyellow;
+	direction: ltr;
+	padding-left: 1px;
+	padding-right: 1px;
+}
+#vkeyboard {display:block; font-size: 100%;}
+#vkeyboard .key {font-size: 60%;}
+/*#inputline:focus {outline: solid 2px red;}*/
+
+body {
+  background:WhiteSmoke;
+  overflow-x: hidden;
+}
+
+
+/* ---------------------------------------------------
+    CONTENT STYLE
+----------------------------------------------------- */
+#content {
+    width: calc(100% - 200px);
+    padding: 30px;
+    min-height: calc(100vh - 100px);
+    transition: all 0.3s;
+    position: absolute;
+    right: 0;
+}
+#content.active {
+    width: 100%;
+}
+
+/* ---------------------------------------------------
+    SEARCHBAR STYLE
+----------------------------------------------------- */
+#searchbar {
+  background: #7d7d7d;
+  transition: all 0.3s;
+  margin-left: 200px;
+  bottom: -50px;
+}
+
+#searchbar.active {
+  bottom: 0px;
+}
+#content.active > #searchbar {
+    margin-left: 0px;
+}
+
+#searchbar li {
+  margin-top: 8px;
+  padding-right: 20px;
+}
+
+/* ---------------------------------------------------
+    SIDEBAR STYLE
+----------------------------------------------------- */
+#sidebar {
+    width: 200px;
+    position: fixed;
+    top: 50px;
+    left: 0;
+    height: calc(100vh - 50px);
+    z-index: 999;
+    background: #7d7d7d;
+    color: #fff;
+    transition: all 0.3s;
+    overflow-y: auto;
+}
+
+#sidebar.active {
+    margin-left: -250px;
+}
+
+#sidebar ul.components {
+    padding: 20px 0;
+    border-bottom: 1px solid #d4d2d2;
+}
+
+#sidebar ul p {
+    color: #fff;
+    padding: 10px;
+}
+
+#sidebar ul li a {
+    padding: 10px;
+    font-size: 1.1em;
+    display: block;
+    color: #4a4a4a;
+}
+#sidebar ul li a:hover {
+    color: #d4d2d2;
+    background: #b1b1b1;
+}
+
+#sidebar ul li.active > a, a[aria-expanded="true"] {
+    color: #fff;
+    background: #686868;
+}

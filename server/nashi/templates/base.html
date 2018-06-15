@@ -1,0 +1,14 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}nashi{% endblock %}
+
+
+{% block navbar %}
+{{nav.mynavbar.render(renderer="navrender")}}
+{% endblock %}
+
+{% block styles %}
+{{super()}}
+  <style>
+    body {margin-top: 50px;}
+  </style>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block navbar %}
+{{nav.mynavbar.render(renderer="navrender")}}
+{% endblock %}
+
+{% block title %}{{ bookname }}@nashi{% endblock %}
+
+
+{% block content %}
+<nav id="sidebar">
+    <ul class="list-unstyled components">
+        {% for p in pages %}
+        <li>
+            <a href="#" onclick="nashi.getData('{{ p[0] }}');">{{ p[0] }} <span class="label {% if p[1] == p[2] %}label-success{% elif 0 < p[1] < p[2] %}label-info{% else %}label-default{% endif %}">{{p[1]}}/{{p[2]}}</span></a>
+        </li>
+        {% endfor %}
+    </ul>
+</nav>
+
+
+<div id="content">
+  <div class="container editor" role="main">
+  </div>
+
+
+  <nav id="searchbar" class="navbar navbar-inverse navbar-fixed-bottom">
+    <div class="container">
+      <div class="navbar-header">
+        <button aria-controls="navbar" aria-expanded="false" class="navbar-toggle collapsed" data-target="#45a8b4a89433dead69c5e68a69de1015c33b403e" data-toggle="collapse" type="button">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <span class="navbar-brand">Search:</span>
+        <ul class="nav navbar-nav">
+          <li>
+          <input type="text" name="searchterm" id="searchterm" class="form-control" id="searchTermInput" placeholder="Search term">
+        </li>
+        <li>
+          <button id="btn_search_backward" class="btn btn-primary"><span class="glyphicon glyphicon-chevron-up"/></button>
+          <button id="btn_search_forward" type="submit" class="btn btn-primary"><span class="glyphicon glyphicon-chevron-down"/></button>
+        </li>
+        <li>
+          <div class="form-check">
+            <input id="chk_search_comments" class="form-check-input" type="checkbox" value="">
+            <label class="form-check-label" for="chk_search_comments"> Comments</label>
+          </div>
+        </li>
+        <li>
+          <span id="searchmessage"></span>
+        </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+</div>
+
+{% endblock %}
+
+
+{% block styles %}
+{{super()}}
+    <link rel="stylesheet" href="{{url_for('static', filename='editor.css')}}">
+{% endblock %}
+
+
+{% block scripts %}
+{{super()}}
+    <script src="{{url_for('static', filename='editor.js')}}"></script>
+
+    <script>
+    // add page menu
+    $(".navbar-fixed-top ul.nav").prepend(`
+        <li class='dropdown pagenav'>
+            <a aria-expanded='false' aria-haspopup='true' class='dropdown-toggle' data-toggle='dropdown' href='#' role='button'>
+                Page <span class='badge pagenum'></span> <span class='caret'></span>
+            </a>
+            <ul class='dropdown-menu'>
+                <li><a href='#' title='Sidebar' onclick='$("#sidebar, #content").toggleClass("active")'>Toggle pagelist</a></li>
+                <li><a href='#' title='Ctrl+PageDown' onclick='nashi.changePage(1)'>Next page</a></li>
+                <li><a href='#' title='Ctrl+PageUp' onclick='nashi.changePage(-1)'>Previous page</a></li>
+                <li><a href='#' title='Ctrl+S' onclick='nashi.downloadXML()'>Download PageXML</a></li>
+            </ul>
+        </li>
+				<li class='dropdown linenav'>
+            <a aria-expanded='false' aria-haspopup='true' class='dropdown-toggle' data-toggle='dropdown' href='#' role='button'>
+                Line <span class='badge linenum'></span> <!-- <span class='caret'></span> -->
+            </a>
+        </li>
+    `);
+
+		$("#btn_search_backward").on("click",function(e){
+			nashi.search(st=$("#searchterm").val(),
+						       start=$("#inputline").data("currentid"),
+						       dir=-1,
+						       comments=$("#chk_search_comments").is(":checked"));
+		});
+		$("#btn_search_forward").on("click",function(e){
+			nashi.search(st=$("#searchterm").val(),
+						       start=$("#inputline").data("currentid"),
+						       dir=1,
+						       comments=$("#chk_search_comments").is(":checked"));
+		});
+		$("#searchterm").on("keydown", function(evt){
+			var e = evt.originalEvent;
+			if (e.code == "Enter"){
+					e.preventDefault();
+					nashi.search(st=$("#searchterm").val(),
+								       start=$("#inputline").data("currentid"),
+								       dir=1,
+								       comments=$("#chk_search_comments").is(":checked"));
+			}
+		});
+
+    //$("#inputbox").on( "keydown", shortcuts);
+    //$("#inputbox").on( "keyup", shortcuts_up);
+    //$("#commentline").on( "blur", savecomment);
+    //$( document ).on( "keydown", shortcuts_global);
+    //$( document ).on( "keyup", shortcuts_global_up);
+
+
+    // Get filename and dir, fetch line data
+  //  getxml("_::first");
+  const nashi = new Nashi();
+  nashi.init($(".editor"));
+    </script>
+{% endblock %}

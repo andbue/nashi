@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}nashi{% endblock %}
+
+{% block navbar %} {{nav.mynavbar.render(renderer="navrender")}} {% endblock %}
+
+{% block content %}
+<div id="larex_import_dialog" class="modal fade" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title">Import settings</h4>
+      </div>
+      <div class="modal-body">
+        <p>Loading…</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        <button id="btn-import" type="button" class="btn btn-primary" onclick="startLareximport('{{ url_for("libedit", bookname="BOOKNAME", action="import_from_larex") }}')">Import</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container" role="main">
+
+  <div class="jumbotron" style="margin-top:15px;padding:20px;">
+    This is nasḫī, a tool to edit transcriptions of scanned texts. Many functions are still work in progress.
+  </div>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for message in messages %}
+      <div class="alert alert-warning" role="alert">
+        {{ message }}
+      </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+
+  <table class="table table-hover">
+    <thead>
+      <tr>
+        <th rowspan="2">Book</th>
+        <th colspan="2">Pages</th>
+        <th colspan="3">Lines</th>
+        <th rowspan="2">OCR</th>
+        <th rowspan="2">Status</th>
+        <th rowspan="2">Edit</th>
+      </tr>
+
+      <tr>
+        <th>total</th>
+        <th>segm.</th>
+
+        <th>total</th>
+        <th>ocr</th>
+        <th>transcr.</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in books|sort %}
+      <tr>
+        <td>{{ b }}</td>
+
+        <td class="col-md-1">{{ books[b]["no_pages_total"] }}</td>
+        <td class="col-md-1">{{ books[b]["no_pages_segm"] }}</td>
+
+        <td class="col-md-1">{{ books[b]["no_lines_segm"] }}</td>
+        <td class="col-md-1">{{ books[b]["no_lines_ocr"] }}</td>
+        <td class="col-md-1">{{ books[b]["no_lines_gt"] }}</td>
+
+
+        <td class="col-md-1">{{ books[b]["ocrstatus"] }}</td>
+        <td class="col-md-2">
+          <div class="progress">
+            {% if books[b]["no_lines_segm"] and books[b]["no_pages_total"] %}
+            <div class="progress-bar progress-bar-success" style="width:{{ 100 * (books[b]["no_lines_gt"]  /  books[b]["no_lines_segm"]) * (books[b]["no_pages_segm"]  /  books[b]["no_pages_total"]) }}%;">
+              {% else %}
+              <div class="progress-bar progress-bar-success" style="0%;">
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </td>
+
+        <td class="col-md-2">
+          <div class="btn-group">
+            <a href="{{ url_for('editor', bookname=b) }}" class="btn" role="button">Transcribe</a>
+            <button type="button" class="btn dropdown-toggle" data-toggle="dropdown">
+              <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu">
+              <li><a href="{{ url_for('editor', bookname=b) }}">Transcribe</a></li>
+              <li><a href="{{ url_for('textedit', bookname=b) }}">Search & Edit</a></li>
+              <li class="divider" role="separator"></li>
+              <li><a href="{{ url_for('larexredir', bookname=b) }}">Segment in LAREX</a></li>
+              <li><a href="#" onclick="copy_to_larex('{{ url_for("libedit", bookname=b, action="copy_to_larex") }}', '{{b}}')">Copy to LAREX</a></li>
+              <li><a href="#" onclick="copy_from_larex('{{ url_for("libedit", bookname=b, action="select_from_larex") }}', '{{b}}')">Import from LAREX</a></li>
+              <li class="divider" role="separator"></li>
+              <li><a href="{{ url_for("getzip", bookname=b) }}">Download PageXML.zip</a></li>
+              <li class="divider" role="separator"></li>
+              <li><a href="#" onclick="delete_book('{{ url_for("libedit", bookname=b, action="delete") }}', '{{b}}')">Delete</a></li>
+            </ul>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  </div>
+  {% endblock %} {% block styles %} {{super()}}
+  <style>
+    body {
+      margin-top: 50px;
+    }
+  </style>
+  {% endblock %} {% block scripts %} {{super()}}
+  <script>
+    function refresh_booklist() {
+      $.ajax({
+        url: "{{ url_for('library', action='refresh_booklist') }}",
+        contentType: 'application/json;charset=UTF-8',
+        success: function(data) {
+          location.reload();
+        }
+      });
+    }
+
+    function delete_book(url, name) {
+      if (confirm("Do you really want to delete " + name + "? All data will be lost!")) {
+        $.ajax({
+          url: url,
+          contentType: 'application/json;charset=UTF-8',
+          success: function(data) {
+            location.reload();
+          }
+        });
+      }
+    }
+
+    function copy_to_larex(url, name) {
+      $.ajax({
+        url: url,
+        contentType: 'application/json;charset=UTF-8',
+        success: function(data) {
+          location.reload();
+        }
+      });
+    }
+
+    function selectCheckboxes(choice) {
+      switch (choice) {
+        case "all":
+          $('#larex_import_dialog input').each(function(n, inp) {
+            inp.checked = true;
+          });
+          break;
+        case "new":
+          $('#larex_import_dialog input').each(function(n, inp) {
+            if (inp.getAttribute("data-lines") < 0) {
+              inp.checked = true;
+            } else {
+              inp.checked = false;
+            }
+          });
+          break;
+        case "empty":
+          $('#larex_import_dialog input').each(function(n, inp) {
+            if (inp.getAttribute("data-lines") <= 0) {
+              inp.checked = true;
+            } else {
+              inp.checked = false;
+            }
+          });
+          break;
+        case "none":
+          $('#larex_import_dialog input').each(function(n, inp) {
+            inp.checked = false;
+          });
+      }
+    }
+
+    function copy_from_larex(url, name) {
+      $("#larex_import_dialog .modal-title").text("Import from LAREX to " + name)
+      $("#btn-import").data("book", name);
+      $('#larex_import_dialog').modal();
+      $.ajax({
+        url: url,
+        contentType: 'application/json;charset=UTF-8',
+        success: function(data) {
+          $("#larex_import_dialog .modal-body").html(data.res);
+        }
+      });
+    }
+
+    function update_import_progress(status_url){
+      $.getJSON(status_url, function(data){
+          $("#importmessage").text(data["status"]);
+          if (data['state'] != 'PENDING' && data['state'] != 'PROGRESS') {
+            if ('result' in data) {
+                // show result
+                $("#importmessage").text('Lines segmented: ' + data['result']);
+            }
+            else {
+                // something unexpected happened
+                $("#importmessage").text('Lines segmented: ' + data['state']);
+            }
+        } else {
+            // rerun in 2 seconds
+            setTimeout(function() {
+                update_import_progress(status_url);
+            }, 2000);
+        }
+      });
+    }
+
+    function startLareximport(url) {
+      var book = $("#btn-import").data("book");
+      var selpages = $('#larex_import_dialog input').map(function(n, inp) {
+        if (inp.checked) {
+          return inp.value
+        }
+      }).toArray()
+      $.ajax({
+        url: url.replace("BOOKNAME", book),
+        type: 'POST',
+        contentType: 'application/json;charset=UTF-8',
+        data: JSON.stringify({
+          pages: selpages
+        }),
+        success: function(data) {
+          $(".jumbotron").after(`<div id="importmessage" class="alert alert-warning" role="alert">Import started!</div>`);
+          $('#larex_import_dialog').modal("toggle");
+          update_import_progress(data["Location"]);
+          //location.reload();
+        }
+      });
+    }
+
+    $(document).ready(function main() {
+      $("ul.nav").prepend(
+        `
+            <li class='dropdown pagenav'>
+                <a aria-expanded='false' aria-haspopup='true' class='dropdown-toggle' data-toggle='dropdown' href='#' role='button'>
+                    Edit <span class="caret"></span>
+                </a>
+                <ul class='dropdown-menu'>
+                    <li><a href='#' title='Refresh list of books' onclick='refresh_booklist()'>Refresh</a></li>
+                </ul>
+            </li>
+        `
+      );
+    });
+  </script>
+{% endblock %}
