@@ -5,7 +5,7 @@ setup(
     packages=['nashi'],
     include_package_data=True,
     install_requires=[
-        'flask',
+        'Flask',
         'sqlalchemy',
         'flask_security',
         'bcrypt',
