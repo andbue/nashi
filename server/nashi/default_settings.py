@@ -18,8 +18,6 @@ MAIL_USE_SSL = True
 MAIL_USERNAME = "anonymous"
 MAIL_PASSWORD = "secret"
 
-
-DB_CONNECTION = 'sqlite:///test.db'
 CELERY_BROKER_URL = 'redis://localhost:6379'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379'
 
