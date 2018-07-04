@@ -27,8 +27,8 @@ But wait, there's more: download now and get a complete webapp written in Python
 - New text lines can be created by clicking inside an existing text region and drawing a rectangle. New lines are always added at the end of the region.
 
 ## Instructions for the server
-- Install (redis)[https://redis.io/]. The app uses (celery)[http://www.celeryproject.org/] as a tast queue for line segmentation jobs (and probably OCR jobs in the future).
-- Install (LAREX)[https://github.com/chreul/LAREX] for semi-automatic layout analysis.
+- Install [redis](https://redis.io/). The app uses [celery](http://www.celeryproject.org/) as a tast queue for line segmentation jobs (and probably OCR jobs in the future).
+- Install [LAREX](https://github.com/chreul/LAREX) for semi-automatic layout analysis.
 - Install the server from this repository or from pypi:
 ```bash
 pip install nashi
@@ -39,7 +39,7 @@ BOOKS_DIR = "/home/username/books/"
 LAREX_DIR = "/home/username/larex_books/"
 
 ```
-- Set an environment variable containing your (database url)[http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls]. If you don't, nashi will create a sqlite database called "test.db" in your working directory.
+- Set an environment variable containing your [database url](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls). If you don't, nashi will create a sqlite database called "test.db" in your working directory.
 ```bash
 export DATABASE_URL="mysql+pymysql://user:pw@localhost/mydb?charset=utf8"
 ```
@@ -62,7 +62,7 @@ export FLASK_APP=nashi
 export NASHI_SETTINGS=/home/user/path/to/config.py
 flask run
 ```
-- Open (localhost:5000)[http://localhost:5000], log in, update your books list via "Edit, Refresh".
+- Open [localhost:5000](http://localhost:5000), log in, update your books list via "Edit, Refresh".
 
 ## Planned features
 - Import and export of books
