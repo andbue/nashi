@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from nashi.models import Book
+import zipfile
+
+from nashi.models import Book, Page
 from nashi.database import db_session
 
 from glob import glob
 from os import path, mkdir, symlink, chmod
 from shutil import chown, copy
+from lxml import etree
+from sqlalchemy.orm.exc import NoResultFound
 
 
 def scan_bookfolder(bookfolder):
@@ -22,6 +26,49 @@ def scan_bookfolder(bookfolder):
         else:
             book.no_pages_total = no_pages_total
     db_session.commit()
+
+
+def upload_pagexml(file):
+    try:
+        zf = zipfile.ZipFile(file)
+    except zipfile.BadZipFile:
+        return "Upload failed. Please upload a valid zip file."
+    result = {}
+    for fn in zf.namelist():
+        try:
+            bookname, filename = fn.split("/")
+        except ValueError:
+            return "Upload failed. The files inside the zip file have to be" +\
+                   " named <BOOKNAME>/<PAGENAME>.xml."
+        try:
+            book = Book.query.filter_by(name=bookname).one()
+        except NoResultFound:
+            return "Import aborted. Book {} is not in your library."\
+                    .format(bookname)
+        if bookname not in result:
+            result[bookname] = 0
+        pagename = path.splitext(path.split(filename)[1])[0]
+        try:
+            page = Page.query.filter_by(book_id=book.id, name=pagename).one()
+        except NoResultFound:
+            return "Import aborted. Book {}, page {} is not in your library."\
+                    .format(bookname, pagename)
+        with zf.open(fn) as fo:
+            pagexml = fo.read().decode("utf-8")
+        root = etree.fromstring(pagexml)
+        ns = {"ns": root.nsmap[None]}
+        page.no_lines_segm = int(root.xpath("count(//ns:TextLine)",
+                                            namespaces=ns))
+        page.no_lines_gt = int(root.xpath(
+            'count(//ns:TextLine/ns:TextEquiv[@index="0"])', namespaces=ns))
+        page.no_lines_ocr = int(root.xpath("count(//ns:TextLine)",
+                                           namespaces=ns))
+        page.data = etree.tounicode(root.getroottree())
+        result[bookname] += 1
+    db_session.commit()
+    res = "Import successfull: {}.".format(", ".join(
+        [": ".join([i[0], str(i[1])]) for i in result.items()]))
+    return res
 
 
 def copy_to_larex(bookname, booksdir, larexdir, larexgrp):

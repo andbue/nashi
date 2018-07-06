@@ -23,6 +23,30 @@
   </div>
 </div>
 
+<div id="file_import_dialog" class="modal fade" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form id="uploadForm" method="post" enctype="multipart/form-data">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title">Import PageXML.zip</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="uploadFile">Select a file containing a folder with PageXML files</label>
+            <input type="file" name="importzip" class="form-control-file" id="uploadFile">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button id="btn-import" type="submit" class="btn btn-primary">Import</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
 <div class="container" role="main">
 
   <div class="jumbotron" style="margin-top:15px;padding:20px;">
@@ -241,6 +265,23 @@
       });
     }
 
+    $("form#uploadForm").submit(function(event){
+      event.preventDefault();
+      $("#file_import_dialog").modal('hide');
+      let formData = new FormData(this);
+      $.ajax({
+          url: "{{ url_for('library', action='upload_pagexml') }}",
+          type: 'POST',
+          data: formData,
+          success: function (data) {
+              alert(data)
+          },
+          cache: false,
+          contentType: false,
+          processData: false
+      });
+    });
+
     $(document).ready(function main() {
       $("ul.nav").prepend(
         `
@@ -249,7 +290,8 @@
                     Edit <span class="caret"></span>
                 </a>
                 <ul class='dropdown-menu'>
-                    <li><a href='#' title='Refresh list of books' onclick='refresh_booklist()'>Refresh</a></li>
+                  <li><a href='#' title='Import PageXML.zip' onclick='$("#file_import_dialog").modal()'>PageXML import</a></li>
+                  <li><a href='#' title='Refresh list of books' onclick='refresh_booklist()'>Refresh</a></li>
                 </ul>
             </li>
         `

@@ -14,7 +14,7 @@ from time import gmtime
 from nashi import app
 from nashi.models import Book, Page
 from nashi.database import db_session
-from nashi.books import scan_bookfolder, copy_to_larex
+from nashi.books import scan_bookfolder, copy_to_larex, upload_pagexml
 from nashi.tasks import lareximport
 
 
@@ -36,12 +36,15 @@ def index():
     return render_template('index.html', books=books)
 
 
-@app.route('/_library/<action>')
+@app.route('/_library/<action>', methods=['POST'])
 @login_required
 def library(action=""):
     if action == "refresh_booklist":
         scan_bookfolder(app.config["BOOKS_DIR"])
-    return jsonify(success=1)
+        res = jsonify(success=1)
+    if action == "upload_pagexml":
+        res = upload_pagexml(request.files["importzip"])
+    return res
 
 
 @app.route('/_libedit/<bookname>/<action>', methods=['POST', 'GET'])
@@ -130,7 +133,7 @@ def getzip(bookname):
     zf = BytesIO()
     z = zipfile.ZipFile(zf, mode='w', compression=zipfile.ZIP_DEFLATED)
     for p in book.pages:
-        z.writestr(p.name + ".xml", p.data)
+        z.writestr(bookname + "/" + p.name + ".xml", p.data)
         # with z.open(p.name + ".xml", "w") as cont:
         #    cont.write(p.data.encode("utf-8"))
     for contfile in z.filelist:
