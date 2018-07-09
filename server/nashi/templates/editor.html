@@ -20,9 +20,78 @@
 
 
 <div id="content">
-  <div class="container editor" role="main">
+  <div id="settings_dialog" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title">Settings editor</h4>
+        </div>
+        <div class="modal-body">
+          <ul class="nav nav-tabs">
+           <li class="active"><a data-toggle="tab" href="#settingsKeys">Keyboard</a></li>
+           <li><a data-toggle="tab" href="#settingsColours">Colours</a></li>
+           <li><a data-toggle="tab" href="#settingsOther">Other</a></li>
+          </ul>
+          <div class="tab-content">
+           <div id="settingsKeys" class="tab-pane fade in active">
+             <table class="table">
+              <thead>
+                <tr>
+                  <th scope="col">Char</th>
+                  <th scope="col">1</th>
+                  <th scope="col">2</th>
+                  <th scope="col">3</th>
+                  <th scope="col">4</th>
+                  <th scope="col">5</th>
+                  <th scope="col">6</th>
+                  <th scope="col">7</th>
+                  <th scope="col">8</th>
+                  <th scope="col">9</th>
+                  <th scope="col">0</th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+            </table>
+           </div>
+           <div id="settingsColours" class="tab-pane fade">
+             <table class="table">
+              <thead>
+                <tr>
+                  <th scope="col">Selector</th>
+                  <th scope="col">Property</th>
+                  <th scope="col">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+            </table>
+           </div>
+           <div id="settingsOther" class="tab-pane fade">
+             <table class="table">
+              <thead>
+                <tr>
+                  <th scope="col">Property</th>
+                  <th scope="col">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+            </table>
+           </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button id="btn-import" type="button" class="btn btn-primary" onclick="applySettings()">Apply</button>
+        </div>
+      </div>
+    </div>
   </div>
 
+
+  <div class="container editor" role="main"></div>
 
   <nav id="searchbar" class="navbar navbar-inverse navbar-fixed-bottom">
     <div class="container">
@@ -69,9 +138,9 @@
 
 {% block scripts %}
 {{super()}}
-    <script src="{{url_for('static', filename='editor.js')}}"></script>
+  <script src="{{url_for('static', filename='editor.js')}}"></script>
 
-    <script>
+  <script>
     // add page menu
     $(".navbar-fixed-top ul.nav").prepend(`
         <li class='dropdown pagenav'>
@@ -83,6 +152,7 @@
                 <li><a href='#' title='Ctrl+PageDown' onclick='nashi.changePage(1)'>Next page</a></li>
                 <li><a href='#' title='Ctrl+PageUp' onclick='nashi.changePage(-1)'>Previous page</a></li>
                 <li><a href='#' title='Ctrl+S' onclick='nashi.downloadXML()'>Download PageXML</a></li>
+                <li><a href='#' title='Change settings' onclick='showSettings()'>Preferences</a></li>
             </ul>
         </li>
 				<li class='dropdown linenav'>
@@ -115,16 +185,99 @@
 			}
 		});
 
-    //$("#inputbox").on( "keydown", shortcuts);
-    //$("#inputbox").on( "keyup", shortcuts_up);
-    //$("#commentline").on( "blur", savecomment);
-    //$( document ).on( "keydown", shortcuts_global);
-    //$( document ).on( "keyup", shortcuts_global_up);
+
+    function showSettings(){
+      $("#settings_dialog #settingsKeys tbody tr").remove()
+      $("#settings_dialog #settingsColours tbody tr").remove()
+      $("#settings_dialog #settingsOther tbody tr").remove()
+      $("#settings_dialog").modal();
+
+      for (const key of Object.keys(nashi.settings.vKeyboard)){
+        let tds = "";
+        for (let i=0; i<10; i++){
+          if (i < nashi.settings.vKeyboard[key].length){
+            tds += `<td contenteditable="true">${nashi.settings.vKeyboard[key][i]}</td>`;
+          } else {
+            tds += `<td contenteditable="true"></td>`;
+          }
+        }
+        $("#settings_dialog #settingsKeys tbody").append(
+          `<tr><th>${key}</th>${tds}</tr>`
+        )
+      }
+
+      nashi.settings.colours.forEach(function(row){
+        $("#settings_dialog #settingsColours tbody").append(
+          `<tr><th>${row[0]}</th><td>${row[1]}</td><td contenteditable="true">${row[2]}</td></tr>`
+        );
+      });
+
+      let otherTable = $("#settings_dialog #settingsOther tbody");
+      otherTable.append(`<tr><th>Font size</th><td contenteditable="true" data-id="fontSize">${nashi.settings.fontSize}</td></tr>`);
+      otherTable.append(`<tr><th>Font scale ltr</th><td contenteditable="true" data-id="fontScale_ltr">${nashi.settings.fontScale.ltr}</td></tr>`);
+      otherTable.append(`<tr><th>Font scale rtl</th><td contenteditable="true" data-id="fontScale_rtl">${nashi.settings.fontScale.rtl}</td></tr>`);
+      otherTable.append(`<tr><th>Handle radius</th><td contenteditable="true" data-id="handleRadius">${nashi.settings.handleRadius}</td></tr>`);
+
+    }
 
 
-    // Get filename and dir, fetch line data
-  //  getxml("_::first");
-  const nashi = new Nashi();
-  nashi.init($(".editor"));
-    </script>
+    function applySettings(){
+      $("#settings_dialog").modal('hide');
+      let settings = nashi.settings;
+
+      // vKeyboard
+      $("#settings_dialog #settingsKeys tbody tr").each(function(x, e){
+        let char = $("th", e).text();
+        settings.vKeyboard[char] = [];
+        $("td", e).each(function(y, td){
+          let vc = $(td).text();
+          if (vc.length){
+            settings.vKeyboard[char].push(vc)
+          }
+        });
+      });
+
+      // Colours
+      settings.colours=[];
+      $("#settings_dialog #settingsColours tbody tr").each(function(x, e){
+        let row = [$("th", e).text()];
+        $("td", e).each(function(y, td){
+          let vc = $(td).text();
+          row.push(vc)
+        });
+        settings.colours.push(row);
+      });
+      applyCSS(settings);
+
+      // Other
+      settings.fontSize = parseInt($("#settingsOther td[data-id='fontSize']").text());
+      settings.fontScale = {
+        ltr: parseFloat($("#settingsOther td[data-id='fontScale_ltr']").text()),
+        rtl: parseFloat($("#settingsOther td[data-id='fontScale_rtl']").text())
+      };
+      settings.handleRadius = parseFloat($("#settingsOther td[data-id='handleRadius']").text());
+
+      data = JSON.stringify(settings);
+      $.ajax({
+        url: '{{url_for("editorsettings")}}',
+        type: 'POST',
+        contentType: 'application/json;charset=UTF-8',
+        data: data,
+        success: function( data ) {
+          console.log(data);
+        }
+      });
+    }
+
+    const nashi = new Nashi();
+    $.getJSON('{{url_for("editorsettings")}}', function(data){
+      let settings = {};
+      if (data.status == "success"){
+        settings = data.settings;
+      } else {
+        settings = defaultSettings;
+      }
+      nashi.init($(".editor"), settings=settings);
+    })
+  </script>
 {% endblock %}

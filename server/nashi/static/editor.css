@@ -46,6 +46,7 @@ line.linehandle:hover {cursor:copy;}
 #svg0 {display: none;}
 #svg1, #svg2 {display: block;}
 #inputbox {display:none; background: whitesmoke; padding: 2px; font-family: Andron Scriptor Web;}
+#settings_dialog table {font-family: Andron Scriptor Web;}
 #inputline {
 	background:White;
     display: inline;

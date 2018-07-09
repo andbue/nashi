@@ -18,8 +18,6 @@
 });
 
 
-let Nashi = function() {};
-
 let defaultSettings = {
 	vKeyboard: {
 		"a": ["ä", "ā", "æ", "aͩ", "aͦ", "ȧ"],
@@ -60,8 +58,38 @@ let defaultSettings = {
 	fontScale: {
 		ltr: 0.8,
 		rtl: 0.6
-	}
+	},
+  handleRadius: 0.3,
+  colours: [
+    ["polygon.empty", "fill", "Salmon"],
+    ["polygon.empty", "opacity", "0.2"],
+    ["polygon.ocr", "fill", "Blue"],
+    ["polygon.ocr", "opacity", "0.2"],
+    ["polygon.gt", "fill", "Green"],
+    ["polygon.ocr", "opacity", "0.2"],
+    ["polygon.comment", "fill-opacity", "0.2"],
+    ["polygon.comment", "opacity", "0.6"],
+    ["polygon.comment", "stroke", "Red"],
+    ["polygon.comment", "stroke-width", "2px"],
+    ["polygon.edit", "fill", "Orange"],
+    ["polygon.edit", "fill-opacity", "0.4"],
+    ["polygon.edit", "opacity", "0.4"],
+  ]
 };
+
+
+function applyCSS(settings) {
+  if ($("head style#CSS").length == 0){
+    $('head').append('<style id="CSS" type="text/css"></style>');
+  }
+  $("head style#CSS").text(
+  $.map(settings.colours, function(b){
+    return `${b[0]} \{${b[1]}: ${b[2]}\}`
+  }).join("\n"));
+}
+
+
+let Nashi = function() {};
 
 
 Nashi.prototype.shortcuts = {
@@ -748,7 +776,7 @@ Nashi.prototype.pushEdit = function(type, lid, rid){
 Nashi.prototype.drawLineHandles = function(polygon, target){
 	$(".linehandle", this.editor.svg0).remove();
 	let svgns = this.editor.svg0.attr("xmlns");
-	let radius = 0.3 / (this.editor.editor.width() / this.editor.image.attr("width")) + "em";
+	let radius = this.settings.handleRadius / (this.editor.editor.width() / this.editor.image.attr("width")) + "em";
 	for (let n = 0; n < polygon.points.length; n++){
 		let newelement = document.createElementNS(svgns, 'line');
 		$(newelement).attr({
@@ -782,7 +810,7 @@ Nashi.prototype.editLine = function(polygon){
 
 	this.drawLineHandles(polygon, $(newgroup));
 
-	let radius = 0.3 / (this.editor.editor.width() / this.editor.image.attr("width")) + "em";
+	let radius = this.settings.handleRadius / (this.editor.editor.width() / this.editor.image.attr("width")) + "em";
 	$(polygon.points).each(function(n, p){
 		let newelement = document.createElementNS(svgns, 'circle');
 		$(newelement).attr({
@@ -896,7 +924,7 @@ Nashi.prototype.createPoint = function(evt){
   let polygon = this.editor.currentLine[0];
   let svgns = this.editor.svg0.attr("xmlns");
   let newelement = document.createElementNS(svgns, 'circle');
-  let radius = 0.3 / (this.editor.editor.width() / this.editor.image.attr("width")) + "em";
+  let radius = this.settings.handleRadius / (this.editor.editor.width() / this.editor.image.attr("width")) + "em";
   $(newelement).attr({
     id: polygon.id + "_p" + polygon.points.length,
     class: "pointhandle movehandle lastmoved",

@@ -1,5 +1,5 @@
 from flask import send_from_directory, render_template, make_response,\
-    request, jsonify, flash, redirect, url_for, Response
+    request, json, jsonify, flash, redirect, url_for, Response
 from flask_security import login_required
 from flask_security.core import current_user
 import requests
@@ -11,8 +11,10 @@ from os import path
 from io import BytesIO
 from time import gmtime
 
+from sqlalchemy.orm.exc import NoResultFound
+
 from nashi import app
-from nashi.models import Book, Page
+from nashi.models import Book, Page, EditorSettings
 from nashi.database import db_session
 from nashi.books import scan_bookfolder, copy_to_larex, upload_pagexml
 from nashi.tasks import lareximport
@@ -97,6 +99,27 @@ def editor(bookname):
         return redirect(url_for("index"))
     pages = [(x.name, x.no_lines_gt, x.no_lines_segm) for x in book.pages]
     return render_template('editor.html', bookname=book.name, pages=pages)
+
+
+@app.route('/_editorsettings', methods=['GET', 'POST'])
+@login_required
+def editorsettings():
+    if request.method == "GET":
+        try:
+            s = EditorSettings.query.filter_by(email=current_user.email).one()
+        except NoResultFound:
+            return jsonify(status="fail")
+        return jsonify(status="success", settings=json.loads(s.settings))
+
+    if request.method == "POST":
+        try:
+            s = EditorSettings.query.filter_by(email=current_user.email).one()
+        except NoResultFound:
+            s = EditorSettings(email=current_user.email)
+        s.settings = json.dumps(request.get_json())
+        db_session.add(s)
+        db_session.commit()
+        return jsonify(status="success")
 
 
 @app.route('/books/<bookname>/textedit.html')

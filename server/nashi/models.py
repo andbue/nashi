@@ -66,6 +66,13 @@ class Page(Base):
     book_id = Column(Integer, ForeignKey('books.id'))
 
 
+class EditorSettings(Base):
+    __tablename__ = 'editorsettings'
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True)
+    settings = Column(UnicodeText(length=2**31))
+
+
 class OCRModel(Base):
     __tablename__ = 'models'
     id = Column(Integer, primary_key=True)

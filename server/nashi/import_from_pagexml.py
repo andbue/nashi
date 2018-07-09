@@ -14,7 +14,7 @@ from lxml import etree
 
 TEXTDIRECTION = 'horizontal-lr'
 
-bookpath = app.config["LAREX_DIR"]+"/Ptolemy_Syntaxis-mathematica-2_gr"
+bookpath = app.config["LAREX_DIR"]+"/Some_Book"
 
 bookname = path.split(bookpath)[1]
 no_pages_total = len(glob(bookpath+"/*.png"))
