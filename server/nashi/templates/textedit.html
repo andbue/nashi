@@ -13,14 +13,18 @@
   {% endwith %}
   <div class="container" style="margin-top:15px;padding:20px;">
     <h1>Search in {{ bookname }}:</h1>
-    <form id="textsearchform" action="{{ url_for('textsearch', bookname=bookname) }}" name="textsearch_form" role="form">
-  <input type="text" name="searchterm" id="searchterm" class="form-control" id="searchTermInput" placeholder="Search term">
-  <button type="submit" class="btn btn-primary">Search</button>
+    <form id="textsearchform" action="{{ url_for('textsearch', bookname=bookname) }}" name="textsearch_form" class="form-inline" role="form">
+        <div class="form-group mb-2">
+          <input type="text" name="searchterm" id="searchterm" class="form-control" id="searchTermInput" placeholder="Search term" style="font-family:Andron Scriptor Web;">
+        </div>
+      <button type="submit" class="btn btn-primary">Search</button>
+      <div class="form-group mb-2">
+        <input type="text" name="replaceterm" id="replaceterm" class="form-control" id="replaceTermInput" placeholder="Replace term" style="font-family:Andron Scriptor Web;">
+      </div>
+    <button type="submit" id="replaceBtn" class="btn">Replace</button>
     </form>
-
-
   </div>
-  <div class="container" id="searchresult"></div>
+  <div class="container" id="searchresult" style="font-family:Andron Scriptor Web;"></div>
 
 
 </div>
@@ -41,10 +45,36 @@ body {
 {{super()}}
 <script>
 
+function toggleimg(btn){
+  let row = btn.parentNode.parentNode;
+  let txt = $(row.children[3]);
+  let img = txt.find("img");
+  if (img.length){
+    img.remove();
+    txt.find("br").first().remove();
+  } else {
+    let page = row.children[1].textContent;
+    let line = row.children[2].textContent;
+    let url = page + "/" + line + ".png";
+    $(row.children[3]).prepend(`<img src="${url}" height="16px"></img><br/>`)
+  }
+}
+
+
+function highlight(sterm){
+  if (sterm.length){
+    let regex = new RegExp(sterm, 'g');
+    let repl = `<span style='background:yellow'>${sterm}</span>`;
+    $(".foundString").each(function(n,e){$(e).html($(e).html().replace(regex, repl))})
+  }
+}
+
+
 $("#textsearchform").submit(function(event){
     // cancels the form submission
     event.preventDefault();
     $("#searchresult").html("Searching...");
+    $("#replaceBtn").toggleClass("btn-danger", false);
     var searchterm = $("#searchterm").val();
     $.ajax({
       type: "POST",
@@ -55,6 +85,17 @@ $("#textsearchform").submit(function(event){
       }),
       success : function(data){
         $("#searchresult").html(data);
+        replterm = $("#replaceterm").val();
+        if (replterm){
+          $("#replaceBtn").toggleClass("btn-danger", true);
+          let regex = new RegExp(searchterm, 'g');
+          $(".foundString").each(function(n,e){
+            let repl = $(e).clone().toggleClass("foundString").toggleClass("replaceString");
+            repl.text(repl.text().replace(regex, replterm))
+            $(e).after("<br/>"+repl.html());
+          });
+        }
+        highlight(searchterm);
       }
     });
 });

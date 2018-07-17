@@ -5,6 +5,7 @@ from flask_security.core import current_user
 import requests
 
 import zipfile
+import unicodedata
 from lxml import etree, html
 from glob import glob
 from os import path
@@ -18,6 +19,7 @@ from nashi.models import Book, Page, EditorSettings
 from nashi.database import db_session
 from nashi.books import scan_bookfolder, copy_to_larex, upload_pagexml
 from nashi.tasks import lareximport
+from nashi.image import getsnippet
 
 
 @app.route('/')
@@ -128,6 +130,27 @@ def textedit(bookname):
     return render_template("textedit.html", bookname=bookname)
 
 
+@app.route('/books/<bookname>/chartable.html')
+@login_required
+def chartable(bookname):
+    b = Book.query.filter_by(name=bookname).one()
+    chars = ""
+    for p in Page.query.filter_by(book_id=b.id):
+        root = etree.fromstring(p.data)
+        ns = {"ns": root.nsmap[None]}
+        chars += "".join(root.xpath('//ns:TextLine/ns:TextEquiv[@index="0"]' +
+                                    '/ns:Unicode/text()', namespaces=ns))
+    chars = set(chars)
+    table = []
+    for c in chars:
+        try:
+            name = unicodedata.name(c)
+        except ValueError:
+            name = "unknown"
+        table.append((c, 'U+{:04X}'.format(ord(c)), name))
+    return render_template("chartable.html", bookname=bookname, results=table)
+
+
 @app.route('/books/<bookname>/_textsearch.html', methods=['POST'])
 @login_required
 def textsearch(bookname):
@@ -146,7 +169,26 @@ def textsearch(bookname):
             text = str(o)
             id = o.getparent().getparent().getparent().attrib["id"]
             results.append((p.name, id, text))
-    return render_template("_searchresults.html", results=results)
+    return render_template("_searchresults.html", results=results,
+                           cnt=len(results))
+
+
+@app.route('/books/<bookname>/<pageno>/<lineid>.png')
+@login_required
+def getlineimage(bookname, pageno, lineid):
+    book = Book.query.filter_by(name=bookname).one()
+    xml = Page.query.filter_by(book_id=book.id, name=pageno).first().data
+    root = etree.fromstring(xml)
+    ns = {"ns": root.nsmap[None]}
+    coords = root.xpath('//ns:TextLine[@id="{}"]/ns:Coords/@points'
+                        .format(lineid), namespaces=ns)[0]
+    fn = root.find(".//ns:Page", namespaces=ns).attrib["imageFilename"]
+    if fn.endswith(".bin.png"):
+        altfile = app.config['BOOKS_DIR']+"/"+bookname+"/"+fn[:-7]+"raw.png"
+        if path.isfile(altfile):
+            fn = file[:-7] + "raw.png"
+    im = getsnippet(app.config['BOOKS_DIR']+bookname+"/"+pageno+".png", coords)
+    return Response(im, mimetype="image/png")
 
 
 @app.route('/books/<bookname>_PageXML.zip')

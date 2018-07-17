@@ -163,23 +163,38 @@
     `);
 
 		$("#btn_search_backward").on("click",function(e){
+      if (typeof(nashi.editor.currentLine) !== "undefined"){
+        var lid = nashi.editor.currentLine[0].id;
+      } else {
+        var lid = "";
+      }
 			nashi.search(st=$("#searchterm").val(),
-						       start=$("#inputline").data("currentid"),
+						       start=lid,
 						       dir=-1,
 						       comments=$("#chk_search_comments").is(":checked"));
 		});
 		$("#btn_search_forward").on("click",function(e){
+      if (typeof(nashi.editor.currentLine) !== "undefined"){
+        var lid = nashi.editor.currentLine[0].id;
+      } else {
+        var lid = "";
+      }
 			nashi.search(st=$("#searchterm").val(),
-						       start=$("#inputline").data("currentid"),
+						       start=lid,
 						       dir=1,
 						       comments=$("#chk_search_comments").is(":checked"));
 		});
 		$("#searchterm").on("keydown", function(evt){
-			var e = evt.originalEvent;
+			let e = evt.originalEvent;
+      if (typeof(nashi.editor.currentLine) !== "undefined"){
+        var lid = nashi.editor.currentLine[0].id;
+      } else {
+        var lid = "";
+      }
 			if (e.code == "Enter"){
 					e.preventDefault();
 					nashi.search(st=$("#searchterm").val(),
-								       start=$("#inputline").data("currentid"),
+								       start=lid,
 								       dir=1,
 								       comments=$("#chk_search_comments").is(":checked"));
 			}

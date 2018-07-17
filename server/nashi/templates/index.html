@@ -119,6 +119,7 @@
             <ul class="dropdown-menu">
               <li><a href="{{ url_for('editor', bookname=b) }}">Transcribe</a></li>
               <li><a href="{{ url_for('textedit', bookname=b) }}">Search & Edit</a></li>
+              <li><a href="{{ url_for('chartable', bookname=b) }}">Character table</a></li>
               <li class="divider" role="separator"></li>
               <li><a href="{{ url_for('larexredir', bookname=b) }}">Segment in LAREX</a></li>
               <li><a href="#" onclick="copy_to_larex('{{ url_for("libedit", bookname=b, action="copy_to_larex") }}', '{{b}}')">Copy to LAREX</a></li>

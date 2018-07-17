@@ -1,5 +1,5 @@
 
-['preserveAspectRatio', 'viewBox'].forEach(function(k) {
+['preserveAspectRatio', 'viewBox', "refX", "refY", "markerWidth", "markerHeight", "markerUnits"].forEach(function(k) {
   // jQuery converts the attribute name to lowercase before
   // looking for the hook.
   $.attrHooks[k.toLowerCase()] = {
@@ -275,6 +275,7 @@ Nashi.prototype.shortcuts = {
 
 Nashi.prototype.init = function(selector, settings=defaultSettings, page="_::first") {
 	this.settings = settings;
+  applyCSS(settings);
 	selector.html(`
 		<div id="editor">
 				<svg id="svg0" xmlns="http://www.w3.org/2000/svg">
@@ -502,7 +503,10 @@ Nashi.prototype.getData = function(filename, line=""){
 					}).toggleClass("comment", (d.comments != ""))
 				);
 	    });
-      if (line) {this.openLine($("#"+line, this.editor.svg0)[0])}
+      if (line) {
+        this.openLine($("#"+line, this.editor.svg0)[0])
+        window.scrollTo(0, this.editor.inputbox.offset().top - 150);
+      }
   	}
 	});
 };
@@ -1019,13 +1023,16 @@ Nashi.prototype.delActivePoints = function(){
 Nashi.prototype.search = function(st="", start="", dir=1, comments=false){
   let lines = Object.keys(this.pagedata.lines);
   let found = false;
+  console.log(start)
   $("#searchmessage").text("Searching…");
   if (!start){start=lines[0];}
   if (dir==-1){lines.reverse();}
+  console.log("start search at " + start);
 	for (var ix=lines.indexOf(start)+1; ix<lines.length; ix++){
 		if (this.pagedata.lines[lines[ix]].text.content.includes(st)){
 			this.openLine($("#"+lines[ix], this.editor.svg0)[0]);
       this.editor.inputbox.toggle(true);
+      window.scrollTo(0, this.editor.inputbox.offset().top - 150);
 			found = true;
 			$("#searchmessage").text("");
 			break;
@@ -1033,6 +1040,7 @@ Nashi.prototype.search = function(st="", start="", dir=1, comments=false){
 		if (comments && this.pagedata.lines[lines[ix]].comments.includes(st)){
       this.openLine($("#"+lines[ix], this.editor.svg0)[0]);
       this.editor.inputbox.toggle(true);
+      window.scrollTo(0, this.editor.inputbox.offset().top - 150);
 			found = true;
 			$("#searchmessage").text("");
 			break;
@@ -1060,3 +1068,46 @@ Nashi.prototype.search = function(st="", start="", dir=1, comments=false){
 		});
 	}
 };
+
+
+Nashi.prototype.drawROrder = function(){
+  let rids = Object.keys(this.pagedata.regions).sort();
+  let rcorners =  rids.map(rid => {
+    return $($("#"+rid, this.editor.svg0)[0].points).toArray()
+      .sort(function(a,b){return (a.x+a.y)-(b.x+b.y)})[0]
+  });
+  let points = rcorners.map(p => {return `${p.x},${p.y}`}).join(" ");
+  let svgns = this.editor.svg0.attr("xmlns");
+  let radius = this.settings.handleRadius / (this.editor.editor.width() / this.editor.image.attr("width")) + "em";
+  let marker = document.createElementNS(svgns, 'marker');
+  let mpath = document.createElementNS(svgns, 'path');
+  let defs = document.createElementNS(svgns, 'defs')
+  $(marker).attr({
+    id: "ar",
+    viewBox: "0 0 15 15",
+    refX: "5",
+    refY: "5",
+    markerUnits: "strokeWidth",
+    markerWidth: "6",
+    markerHeight: "6",
+    orient: "auto-start-reverse"
+  });
+  $(mpath).attr({d: "M 0 0 L 10 5 L 0 10 z", fill: "black"});
+
+  $(marker).append(mpath);
+  $(defs).append(marker);
+  this.editor.svg2.prepend(defs); // Has to be in visible svg...
+  this.editor.svg1.prepend(defs);
+
+  let newelement = document.createElementNS(svgns, 'polyline');
+  $(newelement).attr({
+    class: "rOrder",
+    points: points,
+    fill: "none",
+    stroke: "black",
+    "stroke-width": radius,
+    "marker-mid": "url(#ar)",
+    "marker-end": "url(#ar)"
+  });
+  $("#group", this.editor.svg0).append(newelement);
+}
