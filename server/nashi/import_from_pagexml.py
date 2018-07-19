@@ -43,7 +43,9 @@ for xmlfile in sorted(glob(bookpath+"/*.xml")):
     page.no_lines_segm = int(root.xpath("count(//ns:TextLine)", namespaces=ns))
     page.no_lines_gt = int(root.xpath(
         'count(//ns:TextLine/ns:TextEquiv[@index="0"])', namespaces=ns))
-    page.no_lines_ocr = int(root.xpath("count(//ns:TextLine)", namespaces=ns))
+    page.no_lines_ocr = int(root.xpath('count(//ns:TextLine'
+                                       '[count(./ns:TextEquiv[@index>0])>0])',
+                                       namespaces=ns))
     page.data = etree.tounicode(root.getroottree()).replace(
              "http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-03-19",
              "http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15"

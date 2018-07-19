@@ -61,14 +61,25 @@ def upload_pagexml(file):
                                             namespaces=ns))
         page.no_lines_gt = int(root.xpath(
             'count(//ns:TextLine/ns:TextEquiv[@index="0"])', namespaces=ns))
-        page.no_lines_ocr = int(root.xpath("count(//ns:TextLine)",
-                                           namespaces=ns))
+        page.no_lines_ocr = int(root.xpath('count(//ns:TextLine'
+                                           '[count(./ns:TextEquiv'
+                                           '[@index>0])>0])', namespaces=ns))
         page.data = etree.tounicode(root.getroottree())
         result[bookname] += 1
     db_session.commit()
     res = "Import successfull: {}.".format(", ".join(
         [": ".join([i[0], str(i[1])]) for i in result.items()]))
     return res
+
+
+def getlayers(book):
+    layers = set([])
+    for p in Page.query.filter_by(book_id=book.id):
+        root = etree.fromstring(p.data)
+        ns = {"ns": root.nsmap[None]}
+        nl = set(root.xpath('//ns:TextEquiv/@index', namespaces=ns))
+        layers = layers | nl
+    return sorted(list(layers))
 
 
 def copy_to_larex(bookname, booksdir, larexdir, larexgrp):

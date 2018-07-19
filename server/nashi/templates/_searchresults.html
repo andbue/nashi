@@ -15,8 +15,16 @@
         <td class="col-md-1"><input class="form-check-input" type="checkbox" checked></td>
         <td class="col-md-1">{{ r[0] }}</td>
         <td class="col-md-1">{{ r[1] }}</td>
-        <td><span class="foundString">{{ r[2] }}</span></td>
-        <td class="col-md-1"><button class="btn btn-primary" onclick="toggleimg(this)">□</button></td>
+        <td>
+          {% if r[3] %}
+          <span class="comment" style="background:yellow">
+            <span class="glyphicon glyphicon-paperclip"></span>
+            <span class="commentString">{{r[3]|safe}}</span>
+          </span>
+          <br/>
+          {% endif %}
+          <span class="foundString">{{ r[2] }}</span></td>
+        <td class="col-md-1"><button class="btn" onclick="toggleimg(this)"><span class="glyphicon glyphicon-picture"></span></button></td>
       </tr>
       {% endfor %}
     </tbody>

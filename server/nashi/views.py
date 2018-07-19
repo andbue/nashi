@@ -11,13 +11,15 @@ from glob import glob
 from os import path
 from io import BytesIO
 from time import gmtime
+from copy import deepcopy
 
 from sqlalchemy.orm.exc import NoResultFound
 
 from nashi import app
 from nashi.models import Book, Page, EditorSettings
 from nashi.database import db_session
-from nashi.books import scan_bookfolder, copy_to_larex, upload_pagexml
+from nashi.books import scan_bookfolder, copy_to_larex, upload_pagexml,\
+    getlayers
 from nashi.tasks import lareximport
 from nashi.image import getsnippet
 
@@ -130,15 +132,76 @@ def textedit(bookname):
     return render_template("textedit.html", bookname=bookname)
 
 
-@app.route('/books/<bookname>/chartable.html')
+@app.route('/books/<bookname>/textlayers.html', methods=['GET', 'POST'])
+@login_required
+def textlayers(bookname):
+    data = request.get_json()
+    b = Book.query.filter_by(name=bookname).one()
+
+    if request.method == "GET":
+        return jsonify(layers=getlayers(b))
+
+    elif data["action"] == "copy":
+        source = data["layer"]
+        target = data["target"]
+        ct = 0
+        for p in Page.query.filter_by(book_id=b.id):
+            root = etree.fromstring(p.data)
+            ns = {"ns": root.nsmap[None]}
+            for e in root.xpath('//ns:TextEquiv[@index="{}"]'.format(source),
+                                namespaces=ns):
+                tl = e.getparent()
+                new = deepcopy(e)
+                new.attrib["index"] = target
+                old = e.xpath('../ns:TextEquiv[@index="{}"]'.format(target),
+                              namespaces=ns)
+                if old:
+                    e.getparent().remove(old[0])
+                e.getparent().append(new)
+                ct += 1
+            p.no_lines_gt = int(root.xpath('count(//ns:TextEquiv'
+                                           '[@index="0"])', namespaces=ns))
+            p.no_lines_ocr = int(root.xpath('count(//ns:TextLine'
+                                            '[count(./ns:TextEquiv'
+                                            '[@index>0])>0])',
+                                            namespaces=ns))
+            p.data = etree.tounicode(root.getroottree())
+        db_session.commit()
+        return jsonify(copied=ct)
+
+    elif data["action"] == "delete":
+        layer = int(data["layer"])
+        ct = 0
+        for p in Page.query.filter_by(book_id=b.id):
+            root = etree.fromstring(p.data)
+            ns = {"ns": root.nsmap[None]}
+            for e in root.xpath('//ns:TextEquiv[@index="{}"]'.format(layer),
+                                namespaces=ns):
+                e.getparent().remove(e)
+                ct += 1
+            p.no_lines_gt = int(root.xpath('count(//ns:TextEquiv'
+                                           '[@index="0"])', namespaces=ns))
+            p.no_lines_ocr = int(root.xpath('count(//ns:TextLine'
+                                            '[count(./ns:TextEquiv'
+                                            '[@index>0])>0])',
+                                            namespaces=ns))
+            p.data = etree.tounicode(root.getroottree())
+        db_session.commit()
+        return jsonify(deleted=ct)
+
+
+@app.route('/books/<bookname>/chartable.html', methods=['GET'])
 @login_required
 def chartable(bookname):
+    layer = request.args.get("layer", "0")
+    print("Layer: {}".format(layer))
     b = Book.query.filter_by(name=bookname).one()
     chars = ""
     for p in Page.query.filter_by(book_id=b.id):
         root = etree.fromstring(p.data)
         ns = {"ns": root.nsmap[None]}
-        chars += "".join(root.xpath('//ns:TextLine/ns:TextEquiv[@index="0"]' +
+        chars += "".join(root.xpath('//ns:TextLine/' +
+                                    'ns:TextEquiv[@index="{}"]'.format(layer) +
                                     '/ns:Unicode/text()', namespaces=ns))
     chars = set(chars)
     table = []
@@ -156,19 +219,26 @@ def chartable(bookname):
 def textsearch(bookname):
     data = request.get_json()
     searchterm = data["searchterm"]
+    layer = data["layer"]
     book = Book.query.filter_by(name=bookname).one()
     results = []
 
     for p in book.pages:
         root = etree.fromstring(p.data)
         ns = {"ns": root.nsmap[None]}
-        found = root.xpath('//ns:TextEquiv[@index="0"]/ns:Unicode/text()' +
+        found = root.xpath('//ns:TextEquiv[@index="{}"]'.format(layer) +
+                           '/ns:Unicode/text()' +
                            '[contains(.,"{}")]'.format(searchterm),
                            namespaces=ns)
         for o in found:
             text = str(o)
-            id = o.getparent().getparent().getparent().attrib["id"]
-            results.append((p.name, id, text))
+            textregion = o.getparent().getparent().getparent()
+            id = textregion.attrib["id"]
+            if "comments" in textregion.attrib:
+                comment = textregion.attrib["comments"]
+            else:
+                comment = ""
+            results.append((p.name, id, text, comment))
     return render_template("_searchresults.html", results=results,
                            cnt=len(results))
 

@@ -11,13 +11,73 @@
       {% endfor %}
     {% endif %}
   {% endwith %}
+
+  <div id="editLayers" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title">Edit text layers</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="layerSelect">Select layer</label>
+            <select class="form-control layerSelect" id="layerSelect">
+            </select>
+          </div>
+          <div class="form-group">
+            <button id="btnCopy" type="button" class="btn btn-default" onclick="copyLayer()"><span class="glyphicon glyphicon-copy"> Copy to</button>
+            <label for="layerTarget">Target layer:</label>
+            <input id="layerTarget" type="number" value="100">
+          </div>
+          <div class="form-group">
+            <button id="btnDelete" type="button" class="btn btn-danger" onclick="deleteLayer()"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="charTable" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title">List of characters in this book</h4>
+        </div>
+        <div class="modal-body">
+        </div>
+        <div class="modal-footer">
+          <div class="form-group">
+            <label for="charLayer">Select layer</label>
+            <select class="form-control layerSelect" id="charLayer">
+            </select>
+          </div>
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" onclick="loadCharTable()">Refresh</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <div class="container" style="margin-top:15px;padding:20px;">
     <h1>Search in {{ bookname }}:</h1>
     <form id="textsearchform" action="{{ url_for('textsearch', bookname=bookname) }}" name="textsearch_form" class="form-inline" role="form">
+      <div class="form-group mb-2">
+        <label for="searchlayer">Layer:</label>
+        <select class="form-control layerSelect" id="searchlayer">
+        </select>
+      </div>
+
         <div class="form-group mb-2">
           <input type="text" name="searchterm" id="searchterm" class="form-control" id="searchTermInput" placeholder="Search term" style="font-family:Andron Scriptor Web;">
         </div>
-      <button type="submit" class="btn btn-primary">Search</button>
+      <button type="submit" class="btn btn-primary"><span class="glyphicon glyphicon-search"></span> Search</button>
       <div class="form-group mb-2">
         <input type="text" name="replaceterm" id="replaceterm" class="form-control" id="replaceTermInput" placeholder="Replace term" style="font-family:Andron Scriptor Web;">
       </div>
@@ -45,6 +105,90 @@ body {
 {{super()}}
 <script>
 
+// add edit menu
+$(".navbar-fixed-top ul.nav").prepend(`
+    <li class='dropdown pagenav'>
+        <a aria-expanded='false' aria-haspopup='true' class='dropdown-toggle' data-toggle='dropdown' href='#' role='button'>
+            Edit<span class='caret'></span>
+        </a>
+        <ul class='dropdown-menu'>
+            <li><a href='#' title='Edit text layers' onclick='editLayers()'>Text layers</a></li>
+            <li><a href='#' title='Show character table' onclick='charTable()'>Char table</a></li>
+        </ul>
+    </li>
+`);
+
+
+function loadLayers(){
+  $("#layerSelect").html("");
+  $.getJSON("{{ url_for('textlayers', bookname=bookname) }}", function(data){
+    data.layers.map(function(e){
+      $(".layerSelect").append("<option>"+e+"</option>")
+    });
+  });
+}
+
+function editLayers(){
+  $("#editLayers").modal();
+}
+
+function copyLayer(){
+  let target = $("#layerTarget")[0].value;
+  let layer = $("#layerSelect")[0].value;
+  if (target == layer){alert("Source and target are identical!"); return;}
+  $("#btnCopy").button("toggle");
+  let data = JSON.stringify({
+                action: "copy",
+                layer: $("#layerSelect")[0].value,
+                target: target
+            });
+  $.ajax({
+		url: "{{ url_for('textlayers', bookname=bookname) }}",
+		type: 'POST',
+		contentType: 'application/json;charset=UTF-8',
+		data: data,
+		success: function( data ) {
+      $("#btnCopy").button("toggle");
+      $(".layerSelect").append("<option>"+target+"</option>")
+		}
+	});
+}
+
+function deleteLayer(){
+  $("#btnDelete").button("toggle");
+  let layer = $("#layerSelect")[0].value;
+  let data = JSON.stringify({
+                action: "delete",
+                layer: layer,
+            });
+  $.ajax({
+		url: "{{ url_for('textlayers', bookname=bookname) }}",
+		type: 'POST',
+		contentType: 'application/json;charset=UTF-8',
+		data: data,
+		success: function( data ) {
+      $("#btnDelete").button("toggle");
+      $(".layerSelect option").each(function(n, e){
+        if (layer == $(e).text()){$(e).remove();}
+      })
+		}
+	});
+}
+
+function charTable(){
+  $("#charTable").modal();
+  if ($("#charTable .modal-body table").length == 0){loadCharTable();}
+}
+
+function loadCharTable(){
+  $("#charTable .modal-body").html("")
+  $.get("{{ url_for('chartable', bookname=bookname) }}",
+    {layer: $("#charLayer").val()},
+    function(data){
+      $("#charTable .modal-body").html(data)
+  });
+}
+
 function toggleimg(btn){
   let row = btn.parentNode.parentNode;
   let txt = $(row.children[3]);
@@ -64,11 +208,14 @@ function toggleimg(btn){
 function highlight(sterm){
   if (sterm.length){
     let regex = new RegExp(sterm, 'g');
-    let repl = `<span style='background:yellow'>${sterm}</span>`;
+    let repl = `<span style='background:LightGreen'>${sterm}</span>`;
     $(".foundString").each(function(n,e){$(e).html($(e).html().replace(regex, repl))})
   }
 }
 
+$(function(){
+  loadLayers();
+});
 
 $("#textsearchform").submit(function(event){
     // cancels the form submission
@@ -76,12 +223,14 @@ $("#textsearchform").submit(function(event){
     $("#searchresult").html("Searching...");
     $("#replaceBtn").toggleClass("btn-danger", false);
     var searchterm = $("#searchterm").val();
+    var layer = $("#searchlayer").val()
     $.ajax({
       type: "POST",
       url: "{{ url_for('textsearch', bookname=bookname) }}",
       contentType: 'application/json;charset=UTF-8',
       data: JSON.stringify({
-        searchterm: searchterm
+        searchterm: searchterm,
+        layer: layer
       }),
       success : function(data){
         $("#searchresult").html(data);
@@ -90,9 +239,9 @@ $("#textsearchform").submit(function(event){
           $("#replaceBtn").toggleClass("btn-danger", true);
           let regex = new RegExp(searchterm, 'g');
           $(".foundString").each(function(n,e){
-            let repl = $(e).clone().toggleClass("foundString").toggleClass("replaceString");
+            let repl = $(e).clone().toggleClass("foundString").toggleClass("replaceString").attr("contenteditable", "true");
             repl.text(repl.text().replace(regex, replterm))
-            $(e).after("<br/>"+repl.html());
+            $(e).after("<br/>"+repl[0].outerHTML);
           });
         }
         highlight(searchterm);
