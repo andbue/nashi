@@ -65,13 +65,10 @@ flask run
 - Open [localhost:5000](http://localhost:5000), log in, update your books list via "Edit, Refresh".
 
 ## Planned features
-- Import and export of books
 - Sorting of lines
 - Reading order
 - Creation and correction of regions
 - API for external OCR service
-- Search and replace
-- User preferences
 - Advanced text editing capabilities
 - Help, examples, and documentation
 - Artificial general intelligence that writes the code for me

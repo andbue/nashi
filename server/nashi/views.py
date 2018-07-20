@@ -42,9 +42,10 @@ def index():
     return render_template('index.html', books=books)
 
 
-@app.route('/_library/<action>', methods=['POST'])
+@app.route('/_library/<action>', methods=['POST', 'GET'])
 @login_required
 def library(action=""):
+    print("action: " + action)
     if action == "refresh_booklist":
         scan_bookfolder(app.config["BOOKS_DIR"])
         res = jsonify(success=1)
@@ -239,15 +240,47 @@ def textsearch(bookname):
             else:
                 comment = ""
             results.append((p.name, id, text, comment))
+        if len(results) > 10000:
+            return render_template("_searchresults.html", results=results,
+                                   cnt="{} (there could be more,".format(len(
+                                    results)) + "max. exceeded)")
     return render_template("_searchresults.html", results=results,
                            cnt=len(results))
+
+
+@app.route('/books/<bookname>/_textreplace.html', methods=['POST'])
+@login_required
+def textreplace(bookname):
+    data = request.get_json()
+    replacements = {}
+    for r in data["replacements"]:
+        if r["page"] not in replacements:
+            replacements[r["page"]] = []
+        replacements[r["page"]].append((r["line"], r["text"].strip()))
+    layer = data["layer"]
+    book = Book.query.filter_by(name=bookname).one()
+    cnt = 0
+    for pname, rs in replacements.items():
+        p = Page.query.filter_by(book_id=book.id, name=pname).one()
+        xml = p.data
+        root = etree.fromstring(xml)
+        ns = {"ns": root.nsmap[None]}
+        for r in rs:
+            uc = root.xpath('//ns:TextLine[@id="{}"]'.format(r[0]) +
+                            '/ns:TextEquiv[@index="{}"]'.format(layer) +
+                            '/ns:Unicode', namespaces=ns)[0]
+            uc.text = r[1]
+            cnt += 1
+        p.data = etree.tounicode(root.getroottree())
+    db_session.commit()
+    return "Wrote {} lines to layer {}.".format(cnt, layer)
 
 
 @app.route('/books/<bookname>/<pageno>/<lineid>.png')
 @login_required
 def getlineimage(bookname, pageno, lineid):
     book = Book.query.filter_by(name=bookname).one()
-    xml = Page.query.filter_by(book_id=book.id, name=pageno).first().data
+    xml = Page.query.filter_by(book_id=book.id, name=pageno).one().data
     root = etree.fromstring(xml)
     ns = {"ns": root.nsmap[None]}
     coords = root.xpath('//ns:TextLine[@id="{}"]/ns:Coords/@points'

@@ -40,6 +40,8 @@ def upload_pagexml(file):
         except ValueError:
             return "Upload failed. The files inside the zip file have to be" +\
                    " named <BOOKNAME>/<PAGENAME>.xml."
+        if not filename:
+            continue
         try:
             book = Book.query.filter_by(name=bookname).one()
         except NoResultFound:
@@ -52,7 +54,7 @@ def upload_pagexml(file):
             page = Page.query.filter_by(book_id=book.id, name=pagename).one()
         except NoResultFound:
             return "Import aborted. Book {}, page {} is not in your library."\
-                    .format(bookname, pagename)
+                   .format(bookname, pagename)
         with zf.open(fn) as fo:
             pagexml = fo.read().decode("utf-8")
         root = etree.fromstring(pagexml)
@@ -79,7 +81,7 @@ def getlayers(book):
         ns = {"ns": root.nsmap[None]}
         nl = set(root.xpath('//ns:TextEquiv/@index', namespaces=ns))
         layers = layers | nl
-    return sorted(list(layers))
+    return sorted(list(layers), key=int)
 
 
 def copy_to_larex(bookname, booksdir, larexdir, larexgrp):
