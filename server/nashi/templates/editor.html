@@ -10,7 +10,7 @@
 {% block content %}
 <nav id="sidebar">
     <ul class="list-unstyled components">
-        {% for p in pages %}
+        {% for p in pages | sort %}
         <li>
             <a href="#" onclick="nashi.getData('{{ p[0] }}');">{{ p[0] }} <span class="label {% if p[1] == p[2] %}label-success{% elif 0 < p[1] < p[2] %}label-info{% else %}label-default{% endif %}">{{p[1]}}/{{p[2]}}</span></a>
         </li>
@@ -54,6 +54,10 @@
               <tbody>
               </tbody>
             </table>
+            <div>
+              <input type="text" id="addChar" maxlength="1"></input>
+              <button type="button" id="btnAddChar" class="btn" onclick="addChar()">+</button>
+            </div>
            </div>
            <div id="settingsColours" class="tab-pane fade">
              <table class="table">
@@ -151,7 +155,10 @@
                 <li><a href='#' title='Sidebar' onclick='$("#sidebar, #content").toggleClass("active")'>Toggle pagelist</a></li>
                 <li><a href='#' title='Ctrl+PageDown' onclick='nashi.changePage(1)'>Next page</a></li>
                 <li><a href='#' title='Ctrl+PageUp' onclick='nashi.changePage(-1)'>Previous page</a></li>
-                <li><a href='#' title='Ctrl+S' onclick='nashi.downloadXML()'>Download PageXML</a></li>
+                <li class="divider" role="separator"></li>
+                <li><a href='#' title='Ctrl+S' onclick='nashi.downloadXML()'>Download page</a></li>
+                <li><a href="{{ url_for('getzip', bookname=bookname) }}">Download book</a></li>
+                <li class="divider" role="separator"></li>
                 <li><a href='#' title='Change settings' onclick='showSettings()'>Preferences</a></li>
             </ul>
         </li>
@@ -207,7 +214,7 @@
       $("#settings_dialog #settingsOther tbody tr").remove()
       $("#settings_dialog").modal();
 
-      for (const key of Object.keys(nashi.settings.vKeyboard)){
+      for (const key of Object.keys(nashi.settings.vKeyboard).sort()){
         let tds = "";
         for (let i=0; i<10; i++){
           if (i < nashi.settings.vKeyboard[key].length){
@@ -235,6 +242,20 @@
 
     }
 
+    function addChar(){
+      let char = $("#addChar").val();
+      if (char){
+        if($("#settings_dialog #settingsKeys tbody tr")
+          .map((n, e)=>{return $("th", e).text()})
+          .toArray().indexOf(char) == -1){
+            let tds = "<td contenteditable='true'></td>".repeat(10)
+            $("#settings_dialog #settingsKeys tbody").append(
+              `<tr><th>${char}</th>${tds}</tr>`
+            );
+          }
+      }
+      $("#addChar").val("");
+    }
 
     function applySettings(){
       $("#settings_dialog").modal('hide');

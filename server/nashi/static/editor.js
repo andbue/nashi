@@ -140,7 +140,7 @@ Nashi.prototype.shortcuts = {
           break;
 
           case "Delete":
-            if (nsh.mode = "editLines"){
+            if (nsh.mode == "editLines"){
               evt.preventDefault();
               if ($(".lastmoved", nsh.editor.svg0).length){
                 nsh.delActivePoints();

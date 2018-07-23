@@ -241,15 +241,15 @@ def pagexmllineseg(xmlfile, imgpath, text_direction='horizontal-lr'):
     xmlstring = etree.tounicode(root.getroottree()).replace(
         "http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-03-19",
         "http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15")
-    no_pages_segm = int(root.xpath("count(//TextLine)"))
-    return xmlstring, no_pages_segm
+    no_lines_segm = int(root.xpath("count(//TextLine)"))
+    return xmlstring, no_lines_segm
 
 
 def create_book(bookpath):
     """ Return book database object for path in larex dir. """
     bookname = path.split(bookpath)[1]
     no_pages_total = len(glob(bookpath+"/*.png"))
-    book = Book.query.filter_by(name=bookname).first()
+    book = Book.query.filter_by(name=bookname).one()
     if not book:
         book = Book(name=bookname, no_pages_total=no_pages_total)
     else:
@@ -265,7 +265,7 @@ def add_page(book, xmlfile, commit=True):
         if book.name.endswith("_ar") else 'horizontal-lr'
     bookpath = path.split(xmlfile)[0]
     pagename = path.split(xmlfile)[1].split(".")[0]
-    page = Page.query.filter_by(book_id=book.id, name=pagename).first()
+    page = Page.query.filter_by(book_id=book.id, name=pagename).one()
     if not page:
         page = Page(book=book, name=pagename)
 

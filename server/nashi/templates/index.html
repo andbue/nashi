@@ -124,7 +124,7 @@
               <li><a href="#" onclick="copy_to_larex('{{ url_for("libedit", bookname=b, action="copy_to_larex") }}', '{{b}}')">Copy to LAREX</a></li>
               <li><a href="#" onclick="copy_from_larex('{{ url_for("libedit", bookname=b, action="select_from_larex") }}', '{{b}}')">Import from LAREX</a></li>
               <li class="divider" role="separator"></li>
-              <li><a href="{{ url_for("getzip", bookname=b) }}">Download PageXML.zip</a></li>
+              <li><a href="{{ url_for('getzip', bookname=b) }}">Download PageXML.zip</a></li>
               <li class="divider" role="separator"></li>
               <li><a href="#" onclick="delete_book('{{ url_for("libedit", bookname=b, action="delete") }}', '{{b}}')">Delete</a></li>
             </ul>

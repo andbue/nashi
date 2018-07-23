@@ -109,18 +109,22 @@ def editor(bookname):
 @app.route('/_editorsettings', methods=['GET', 'POST'])
 @login_required
 def editorsettings():
+    if current_user.is_anonymous:
+        email = "user@nashi"
+    else:
+        email = current_user.email
     if request.method == "GET":
         try:
-            s = EditorSettings.query.filter_by(email=current_user.email).one()
+            s = EditorSettings.query.filter_by(email=email).one()
         except NoResultFound:
             return jsonify(status="fail")
         return jsonify(status="success", settings=json.loads(s.settings))
 
     if request.method == "POST":
         try:
-            s = EditorSettings.query.filter_by(email=current_user.email).one()
+            s = EditorSettings.query.filter_by(email=email).one()
         except NoResultFound:
-            s = EditorSettings(email=current_user.email)
+            s = EditorSettings(email=email)
         s.settings = json.dumps(request.get_json())
         db_session.add(s)
         db_session.commit()
@@ -437,7 +441,10 @@ def pagedata(bookname, pagename):
 
     if request.method == "POST":
         data = request.json
-        user = current_user.email
+        if current_user.is_anonymous:
+            user = "user@nashi"
+        else:
+            user = current_user.email
 
         for l in [l for l in data["edits"] if l["action"] == "delete"]:
             cur = l["id"]

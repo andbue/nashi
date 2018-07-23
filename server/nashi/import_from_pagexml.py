@@ -6,52 +6,64 @@ Load one particular book and import into database...
 
 
 from nashi import app
-from models import Book, Page
-from database import db_session
+from nashi.models import Book, Page
+from nashi.database import db_session
+
 from glob import glob
 from os import path
 from lxml import etree
 
-TEXTDIRECTION = 'horizontal-lr'
-
-bookpath = app.config["LAREX_DIR"]+"/Some_Book"
-
-bookname = path.split(bookpath)[1]
-no_pages_total = len(glob(bookpath+"/*.png"))
-
-book = Book.query.filter_by(name=bookname).first()
-if not book:
-    book = Book(name=bookname, no_pages_total=no_pages_total)
-else:
-    book.no_pages_total = no_pages_total
-
-print(bookname)
-
-for xmlfile in sorted(glob(bookpath+"/*.xml")):
-    pagename = path.splitext(path.split(xmlfile)[1])[0]
-    print(pagename)
-
-    page = Page.query.filter_by(book_id=book.id, name=pagename).first()
-    if not page:
-        page = Page(book=book, name=pagename)
-
-    root = etree.parse(xmlfile).getroot()
-    ns = {"ns": root.nsmap[None]}
-
-    textregions = root.xpath('//ns:TextRegion', namespaces=ns)
-
-    page.no_lines_segm = int(root.xpath("count(//ns:TextLine)", namespaces=ns))
-    page.no_lines_gt = int(root.xpath(
-        'count(//ns:TextLine/ns:TextEquiv[@index="0"])', namespaces=ns))
-    page.no_lines_ocr = int(root.xpath('count(//ns:TextLine'
-                                       '[count(./ns:TextEquiv[@index>0])>0])',
-                                       namespaces=ns))
-    page.data = etree.tounicode(root.getroottree()).replace(
-             "http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-03-19",
-             "http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15"
-            )
+import argparse
 
 
-db_session.add(book)
+def import_folder(bookpath):
+    bookname = path.split(bookpath)[1]
+    no_pages_total = len(glob(bookpath+"/*.xml"))
 
-db_session.commit()
+    book = Book.query.filter_by(name=bookname).one()
+    if not book:
+        book = Book(name=bookname, no_pages_total=no_pages_total)
+    else:
+        book.no_pages_total = no_pages_total
+
+    print('Importing book "{}"...'.format(bookname))
+    cnt = 0
+    for xmlfile in sorted(glob(bookpath+"/*.xml")):
+        pagename = path.split(xmlfile)[1].split(".")[0]
+        print("Importing page {}...".format(pagename))
+
+        page = Page.query.filter_by(book_id=book.id, name=pagename).one()
+        if not page:
+            page = Page(book=book, name=pagename)
+
+        root = etree.parse(xmlfile).getroot()
+        ns = {"ns": root.nsmap[None]}
+
+        textregions = root.xpath('//ns:TextRegion', namespaces=ns)
+
+        page.no_lines_segm = int(root.xpath("count(//ns:TextLine)",
+                                 namespaces=ns))
+        page.no_lines_gt = int(root.xpath(
+            'count(//ns:TextLine/ns:TextEquiv[@index="0"])', namespaces=ns))
+        page.no_lines_ocr = int(root.xpath('count(//ns:TextLine[count'
+                                           '(./ns:TextEquiv[@index>0])>0])',
+                                           namespaces=ns))
+        page.data = etree.tounicode(root.getroottree())
+        cnt += 1
+
+    db_session.add(book)
+    db_session.commit()
+    print('{} pages imported for book {}.'.format(cnt, bookname))
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("bookfolder", type="str",
+                        help="Give the directory that contains the PageXML "
+                        "files to import.")
+    args = parser.parse_args()
+    import_folder(args.bookfolder)
+
+
+if __name__ == "__main__":
+    main()
