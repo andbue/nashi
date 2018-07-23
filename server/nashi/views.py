@@ -289,8 +289,8 @@ def getlineimage(bookname, pageno, lineid):
     if fn.endswith(".bin.png"):
         altfile = app.config['BOOKS_DIR']+"/"+bookname+"/"+fn[:-7]+"raw.png"
         if path.isfile(altfile):
-            fn = file[:-7] + "raw.png"
-    im = getsnippet(app.config['BOOKS_DIR']+bookname+"/"+pageno+".png", coords)
+            fn = fn[:-7] + "raw.png"
+    im = getsnippet(app.config['BOOKS_DIR']+bookname+"/"+fn, coords)
     return Response(im, mimetype="image/png")
 
 

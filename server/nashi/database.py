@@ -10,7 +10,8 @@ except KeyError:
     database_url = 'sqlite:///test.db'
 
 if database_url.startswith("mysql"):
-    engine = create_engine(database_url, convert_unicode=True, pool_recyle=280)
+    engine = create_engine(database_url, convert_unicode=True,
+                           pool_pre_ping=True)
 else:
     engine = create_engine(database_url, convert_unicode=True)
 
