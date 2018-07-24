@@ -22,6 +22,7 @@ CELERY_BROKER_URL = 'redis://localhost:6379'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379'
 
 BOOKS_DIR = '/home/user/books/'
+IMAGE_SUBDIR = ''
 LAREX_DIR = '/home/user/larex_books/'
 LAREX_GRP = 'tomcat8'
 LAREX_URL_SERVER = 'http://localhost:8080/Larex/'

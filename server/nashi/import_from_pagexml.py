@@ -5,9 +5,9 @@ Load one particular book and import into database...
 """
 
 
-from nashi import app
 from nashi.models import Book, Page
 from nashi.database import db_session
+from sqlalchemy.orm.exc import NoResultFound
 
 from glob import glob
 from os import path
@@ -19,11 +19,10 @@ import argparse
 def import_folder(bookpath):
     bookname = path.split(bookpath)[1]
     no_pages_total = len(glob(bookpath+"/*.xml"))
-
-    book = Book.query.filter_by(name=bookname).one()
-    if not book:
+    try:
+        book = Book.query.filter_by(name=bookname).one()
+    except NoResultFound:
         book = Book(name=bookname, no_pages_total=no_pages_total)
-    else:
         book.no_pages_total = no_pages_total
 
     print('Importing book "{}"...'.format(bookname))
@@ -32,8 +31,9 @@ def import_folder(bookpath):
         pagename = path.split(xmlfile)[1].split(".")[0]
         print("Importing page {}...".format(pagename))
 
-        page = Page.query.filter_by(book_id=book.id, name=pagename).one()
-        if not page:
+        try:
+            page = Page.query.filter_by(book_id=book.id, name=pagename).one()
+        except NoResultFound:
             page = Page(book=book, name=pagename)
 
         root = etree.parse(xmlfile).getroot()
@@ -58,7 +58,7 @@ def import_folder(bookpath):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("bookfolder", type="str",
+    parser.add_argument("bookfolder", type=str,
                         help="Give the directory that contains the PageXML "
                         "files to import.")
     args = parser.parse_args()

@@ -12,12 +12,13 @@ from lxml import etree
 from sqlalchemy.orm.exc import NoResultFound
 
 
-def scan_bookfolder(bookfolder):
+def scan_bookfolder(bookfolder, img_subdir):
     """ Scan bookfolder and write book info to database. """
     books = glob(bookfolder + "//*/")
     for bookpath in books:
         bookname = path.split(bookpath[:-1])[1]
-        files = set([f.split(sep=".")[0] for f in glob(bookpath+"*.png")])
+        files = set([f.split(sep=".")[0] for f in glob(bookpath + img_subdir
+                                                       + "*.png")])
         no_pages_total = len(files)
         book = Book.query.filter_by(name=bookname).first()
         if not book:
@@ -84,13 +85,16 @@ def getlayers(book):
     return sorted(list(layers), key=int)
 
 
-def copy_to_larex(bookname, booksdir, larexdir, larexgrp):
-    pngfiles = glob("{}/{}/*.png".format(booksdir, bookname))
+def copy_to_larex(bookname, booksdir, img_subdir, larexdir, larexgrp):
+    pngfiles = glob("{}/{}/{}/*.png".format(booksdir, bookname, img_subdir))
+    pngfiles = [path.abspath(f) for f in pngfiles]
     pages = set([path.split(f)[1].split(".")[0] for f in pngfiles])
     cpimgs = []
     for p in sorted(pages):
-        fullbinp = "{}/{}/{}.bin.png".format(booksdir, bookname, p)
-        fullnrmp = "{}/{}/{}.nrm.png".format(booksdir, bookname, p)
+        fullbinp = path.abspath("{}/{}/{}/{}.bin.png"
+                                .format(booksdir, bookname, img_subdir, p))
+        fullnrmp = path.abspath("{}/{}/{}/{}.nrm.png"
+                                .format(booksdir, bookname, img_subdir, p))
         if fullbinp in pngfiles:
             cpimgs.append(fullbinp)
         elif fullnrmp in pngfiles:

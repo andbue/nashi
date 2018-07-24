@@ -47,7 +47,7 @@ def index():
 def library(action=""):
     print("action: " + action)
     if action == "refresh_booklist":
-        scan_bookfolder(app.config["BOOKS_DIR"])
+        scan_bookfolder(app.config["BOOKS_DIR"], app.config["IMAGE_SUBDIR"])
         res = jsonify(success=1)
     if action == "upload_pagexml":
         res = upload_pagexml(request.files["importzip"])
@@ -68,6 +68,7 @@ def libedit(bookname, action=""):
 
     if action == "copy_to_larex":
         count = copy_to_larex(bookname, app.config["BOOKS_DIR"],
+                              app.config["IMAGE_SUBDIR"],
                               app.config["LAREX_DIR"], app.config["LAREX_GRP"])
         flash("Copied {} files to LAREX.".format(count))
         return jsonify(files_copied=count)
@@ -291,10 +292,15 @@ def getlineimage(bookname, pageno, lineid):
                         .format(lineid), namespaces=ns)[0]
     fn = root.find(".//ns:Page", namespaces=ns).attrib["imageFilename"]
     if fn.endswith(".bin.png"):
-        altfile = app.config['BOOKS_DIR']+"/"+bookname+"/"+fn[:-7]+"raw.png"
+        altfile = "{}/{}/{}/{}.raw.png".format(app.config['BOOKS_DIR'],
+                                               bookname,
+                                               app.config['IMAGE_SUBDIR'],
+                                               fn[:-7])
         if path.isfile(altfile):
             fn = fn[:-7] + "raw.png"
-    im = getsnippet(app.config['BOOKS_DIR']+bookname+"/"+fn, coords)
+    im = getsnippet("{}/{}/{}/{}".format(app.config['BOOKS_DIR'], bookname,
+                                         app.config['IMAGE_SUBDIR'], fn),
+                    coords)
     return Response(im, mimetype="image/png")
 
 
@@ -329,12 +335,16 @@ def getxml(bookname, file):
 @login_required
 def getpng(bookname, file):
     if file.endswith(".bin"):
-        altfile = app.config['BOOKS_DIR']+"/"+bookname+"/"+file[:-3]+"raw.png"
+        altfile = "{}/{}/{}/{}.raw.png".format(app.config['BOOKS_DIR'],
+                                               bookname,
+                                               app.config['IMAGE_SUBDIR'],
+                                               file[:-4])
         if path.isfile(altfile):
             file = file[:-3] + "raw"
     # return app.send_static_file("0003.png")
-    return send_from_directory(app.config['BOOKS_DIR'],
-                               bookname+"/"+file+".png")
+    return send_from_directory(app.config['BOOKS_DIR'] + bookname
+                               + app.config['IMAGE_SUBDIR'],
+                               file+".png")
 
 
 @app.route('/books/<bookname>/<pagename>/search_continue', methods=['POST'])

@@ -16,6 +16,11 @@ setup(
     packages=['nashi'],
     include_package_data=True,
     zip_safe=False,
+    entry_points={
+        'console_scripts': [
+            'nashi-import=nashi.import_from_pagexml:main',
+        ],
+    },
     install_requires=[
         'Flask',
         'sqlalchemy',
