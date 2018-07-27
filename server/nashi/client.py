@@ -24,8 +24,9 @@ from calamari_ocr.ocr.text_processing import DefaultTextPreprocessor,\
 from calamari_ocr.ocr.data_processing.default_data_preprocessor import DefaultDataPreprocessor
 from calamari_ocr.ocr.text_processing import DefaultTextPreprocessor, text_processor_from_proto, BidiTextProcessor,\
 default_text_normalizer_params, default_text_regularizer_params
-from calamari_ocr.proto import CheckpointParams, DataPreprocessorParams, TextProcessorParams,\
+from calamari_ocr.proto import CheckpointParams, DataPreprocessorParams, TextProcessorParams, \
 network_params_from_definition_string, NetworkParams
+
 
 def params_from_args(args):
     params = CheckpointParams()
@@ -152,6 +153,7 @@ class NashiClient():
         self.session = None
         self.traindata = None
         self.recogdata = None
+        self.valdata = None
         self.bookcache = {}
 
     def login(self, email, pw):
@@ -198,6 +200,7 @@ class NashiClient():
             for l in lines:
                 if l not in self.recogdata._samples:
                     self.recogdata._samples.append(l)
+
 
     def getbook(self, bookname):
         pagezip = self.session.get(self.baseurl+"/books/{}_PageXML.zip"
@@ -261,13 +264,21 @@ class NashiClient():
                 })
         return lines
 
-    def train(self, params, weights=None):
-        trainer = Trainer(params, self.traindata, validation_dataset=None, weights=weights)
+    def train(self, params, weights=None, training_to_validation=1):
+        if 0<training_to_validation<1 and not self.valdata:
+            valsamples = random.sample(self.traindata._samples,
+                                       int((1-training_to_validation)*len(self.traindata)))
+            for s in valsamples:
+                self.traindata._samples.remove(s)
+            self.valdata = NashiDataSet([], self.session, self.baseurl)
+            self.valdata._samples = valsamples
+        trainer = Trainer(params, self.traindata, validation_dataset=self.valdata, weights=weights)
         trainer.train(progress_bar=True)
 
-    def predict(self, checkpoint):
+    def predict(self, checkpoint, progress_bar=True):
         predictor = Predictor(checkpoint=checkpoint)
-        self.recogdata.load_samples()
+        self.recogdata.load_samples(progress_bar=progress_bar)
+        #lines = [l for l in ncl.recogdata._samples if l["rtype"] == "paragraph"]
         res = predictor.predict_raw([l["image"] for l in self.recogdata._samples])
         for sample, r in zip(self.recogdata._samples, res):
             if r.sentence:
@@ -306,17 +317,17 @@ class NashiClient():
         savelines = [l for l in ncl.recogdata._samples if "pred" in l]
         books = sorted(list(set([l["book"] for l in savelines])))
         for b in books:
-            if b not in data:
+            if b not in ocrdata:
                 ocrdata[b] = {}
             pages = sorted(list(set([l["page"] for l in savelines
                                      if l["book"] == b])))
             for p in pages:
-                if p not in data[b]:
+                if p not in ocrdata[b]:
                     ocrdata[b][p] = {}
                 for l in [l for l in savelines if l["book"] == b and l["page"] == p]:
                     ocrdata[b][p][l["id"]] = l["pred"]
         data = {"ocrdata": ocrdata, "index": index}
         self.session.post(self.baseurl+"/_ocrdata",
                           data=gzip.compress(json.dumps(data).encode("utf-8")),
-                          headers={"Content-Type": "application/json;charset=UTF-8"
+                          headers={"Content-Type": "application/json;charset=UTF-8",
                                    "Content-Encoding": "gzip"})

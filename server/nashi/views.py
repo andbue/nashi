@@ -422,6 +422,8 @@ def search_continue(bookname, pagename):
             textcontent = textline.find(
                 './ns:TextEquiv[@index="{}"]/ns:Unicode'.format(lowestindex),
                 namespaces=ns).text if lowestindex else ""
+            if not textcontent:
+                textcontent = ""
             comm = ""
             if data["comments"] and "comments" in textline.attrib:
                 comm = textline.attrib["comments"]
