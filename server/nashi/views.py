@@ -3,6 +3,7 @@ from flask import send_from_directory, render_template, make_response,\
 from flask_security import login_required
 from flask_security.core import current_user
 import requests
+import gzip
 
 import zipfile
 import unicodedata
@@ -130,6 +131,47 @@ def editorsettings():
         db_session.add(s)
         db_session.commit()
         return jsonify(status="success")
+
+
+@app.route('/_ocrdata', methods=['POST'])
+@login_required
+def ocrdata():
+    if "Content-Encoding" in request.headers and \
+            request.headers["Content-Encoding"] == "gzip":
+        data = json.loads(gzip.decompress(request.data).decode("utf-8"))
+    else:
+        data = request.get_json()
+    cnt = 0
+    for bname, bdict in data["ocrdata"].items():
+        b = Book.query.filter_by(name=bname).one()
+        for pname, pdict in bdict.items():
+            p = Page.query.filter_by(book_id=b.id, name=pname).one()
+            root = etree.fromstring(p.data)
+            ns = {"ns": root.nsmap[None]}
+            for lid, text in pdict.items():
+                linexml = root.find('.//ns:TextLine[@id="'+lid+'"]',
+                                    namespaces=ns)
+                textequivxml = linexml.find('./ns:TextEquiv[@index="{}"]'
+                                            .format(data["index"]),
+                                            namespaces=ns)
+                if textequivxml is None:
+                    textequivxml = etree.SubElement(linexml, "TextEquiv",
+                                                    attrib={"index":
+                                                            str(data["index"])
+                                                            })
+                unicodexml = textequivxml.find('./ns:Unicode',
+                                               namespaces=ns)
+                if unicodexml is None:
+                    unicodexml = etree.SubElement(textequivxml, "Unicode")
+                unicodexml.text = text
+                cnt += 1
+            p.no_lines_ocr = int(root.xpath('count(//ns:TextLine'
+                                            '[count(./ns:TextEquiv'
+                                            '[@index>0])>0])',
+                                            namespaces=ns))
+            p.data = etree.tounicode(root.getroottree())
+    db_session.commit()
+    return "Imported {} lines.".format(cnt)
 
 
 @app.route('/books/<bookname>/textedit.html')
@@ -334,7 +376,15 @@ def getxml(bookname, file):
 @app.route('/books/<bookname>/<file>.png')
 @login_required
 def getpng(bookname, file):
-    if file.endswith(".bin"):
+    upgrade = request.args.get("upgrade", "")
+    if upgrade\
+        and path.isfile(
+            "{}/{}/{}/{}.{}.png".format(app.config['BOOKS_DIR'],
+                                        bookname, app.config['IMAGE_SUBDIR'],
+                                        file.split(".")[0], upgrade)):
+        file = "{}.{}".format(file.split(".")[0], upgrade)
+        print("upgraded")
+    if not upgrade and file.endswith(".bin"):
         altfile = "{}/{}/{}/{}.raw.png".format(app.config['BOOKS_DIR'],
                                                bookname,
                                                app.config['IMAGE_SUBDIR'],
