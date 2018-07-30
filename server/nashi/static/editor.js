@@ -113,6 +113,18 @@ Nashi.prototype.shortcuts = {
 						}
 					break;
 
+          case "Tab":
+            if (evt.shiftKey){
+              if (nsh.mode == "editLines" && nsh.editor.currentLine[0].previousSibling){
+                nsh.editLine(nsh.editor.currentLine[0].previousSibling);
+              }
+            }else if(nsh.mode == "editLines" && nsh.editor.currentLine[0].nextSibling){
+              nsh.editLine(nsh.editor.currentLine[0].nextSibling);
+            }
+            evt.preventDefault();
+
+          break;
+
 					case "KeyF":
 						if (evt.ctrlKey){
 							evt.preventDefault();
@@ -187,7 +199,7 @@ Nashi.prototype.shortcuts = {
 			case "keydown":
 				switch (evt.code){
 					case "Enter":
-						if (document.activeElement == nsh.editor.inputline){
+						if (document.activeElement == nsh.editor.inputline[0]){
 							evt.preventDefault();
 						}
 						if (evt.shiftKey){
@@ -383,7 +395,6 @@ Nashi.prototype.saveCurrentLine = function(){
 			this.editor.commentline.data("dontsave", true);
 	}
 	this.sendLine(this.editor.currentLine[0]);
-
 	if (this.editor.currentLine[0].nextElementSibling &&
 			this.editor.currentLine[0].nextElementSibling.tagName == "polygon"){
 				this.openLine(this.editor.currentLine[0].nextElementSibling);
@@ -391,7 +402,7 @@ Nashi.prototype.saveCurrentLine = function(){
 };
 
 
-Nashi.prototype.saveCommentLine = function(){
+Nashi.prototype.saveCommentLineOld = function(){
 	let cur = this.editor.currentLine[0].id;
   if (this.editor.commentline.data("dontsave")){
       // saving already done in savetext()
@@ -400,6 +411,24 @@ Nashi.prototype.saveCommentLine = function(){
     if (this.pagedata.lines[cur].comments != $("#commentline").html()){
       this.pagedata.lines[cur].comments = $("#commentline").html();
 	    var tgl = this.editor.commentline.html() ? true : false;
+      this.editor.currentLine.toggleClass("comment", tgl);
+      this.editor.currentLine.toggleClass("saving", true);
+      this.sendLine(this.editor.currentLine[0]);
+    }
+  }
+};
+
+Nashi.prototype.saveCommentLine = function(){
+	let cur = this.editor.currentLine[0].id;
+  if (this.editor.commentline.data("dontsave")){
+      // saving already done in savetext()
+      this.editor.commentline.data("dontsave", false);
+  } else {
+    let content = $("<div>"+this.editor.commentline.html().replace("<br>", "\n")+"</div>")
+                  .text().replace("\n", "<br>") 
+    if (this.pagedata.lines[cur].comments != content){
+      this.pagedata.lines[cur].comments = content;
+	    var tgl = content ? true : false;
       this.editor.currentLine.toggleClass("comment", tgl);
       this.editor.currentLine.toggleClass("saving", true);
       this.sendLine(this.editor.currentLine[0]);
