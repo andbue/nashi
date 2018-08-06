@@ -24,8 +24,12 @@ def cutout(pageimg, coordstring, scale=1):
     return box, offset
 
 
-def getsnippet(filename, coordstring):
-    cut = cutout(skimage_io.imread(filename), coordstring)[0]
+def getsnippet(filename, coordstring, imgshape=None):
+    pageimg = skimage_io.imread(filename)
+    scale = 1
+    if imgshape:
+        scale = pageimg.shape[1] / imgshape[0]
+    cut = cutout(pageimg, coordstring, scale)[0]
     file = BytesIO()
     image = Image.fromarray(cut)
     image.save(file, 'png')

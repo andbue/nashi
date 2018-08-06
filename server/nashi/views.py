@@ -333,7 +333,10 @@ def getlineimage(bookname, pageno, lineid):
     ns = {"ns": root.nsmap[None]}
     coords = root.xpath('//ns:TextLine[@id="{}"]/ns:Coords/@points'
                         .format(lineid), namespaces=ns)[0]
-    fn = root.find(".//ns:Page", namespaces=ns).attrib["imageFilename"]
+    pxml = root.find(".//ns:Page", namespaces=ns)
+    fn = pxml.attrib["imageFilename"]
+    imgshape = (int(pxml.attrib["imageWidth"]),
+                int(pxml.attrib["imageHeight"]))
     if fn.endswith(".bin.png"):
         altfile = "{}/{}/{}/{}.raw.png".format(app.config['BOOKS_DIR'],
                                                bookname,
@@ -343,7 +346,7 @@ def getlineimage(bookname, pageno, lineid):
             fn = fn[:-7] + "raw.png"
     im = getsnippet("{}/{}/{}/{}".format(app.config['BOOKS_DIR'], bookname,
                                          app.config['IMAGE_SUBDIR'], fn),
-                    coords)
+                    coords, imgshape)
     return Response(im, mimetype="image/png")
 
 
