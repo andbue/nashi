@@ -267,6 +267,7 @@ def chartable(bookname):
 def textsearch(bookname):
     data = request.get_json()
     searchterm = data["searchterm"]
+    print('Searchterm: <{}>'.format(searchterm))
     layer = data["layer"]
     book = Book.query.filter_by(name=bookname).one()
     results = []
@@ -274,10 +275,10 @@ def textsearch(bookname):
     for p in book.pages:
         root = etree.fromstring(p.data)
         ns = {"ns": root.nsmap[None]}
-        found = root.xpath('//ns:TextEquiv[@index="{}"]'.format(layer) +
-                           '/ns:Unicode/text()' +
-                           '[contains(.,"{}")]'.format(searchterm),
-                           namespaces=ns)
+        found = [t for t in root.xpath('//ns:TextEquiv[@index="{}"]'
+                                       .format(layer) +
+                                       '/ns:Unicode/text()',
+                                       namespaces=ns) if searchterm in t]
         for o in found:
             text = str(o)
             textregion = o.getparent().getparent().getparent()

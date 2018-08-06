@@ -85,7 +85,7 @@
       <button type="button" id="replaceBtn" class="btn" onclick="startReplace()">Replace</button>
     </form>
     <div>
-      <span id="vkeyboard"  style="font-family:Andron Scriptor Web;"></span>
+      <span id="vkeyboard" style="font-family:Andron Scriptor Web; display: none;"></span>
     </div>
   </div>
   <div class="container" id="searchresult" style="font-family:Andron Scriptor Web;"></div>
@@ -214,10 +214,16 @@ function toggleimg(btn){
   }
 }
 
+function regescape(string){
+  return string.replace("\\", "\\\\")
+               .replace("*", "\\*")
+               .replace(".", "\\.");
+
+}
 
 function highlight(sterm){
   if (sterm.length){
-    let regex = new RegExp(sterm, 'g');
+    let regex = new RegExp(regescape(sterm), 'g');
     let repl = `<span style='background:LightGreen'>${sterm}</span>`;
     $(".foundString").each(function(n,e){$(e).html($(e).html().replace(regex, repl))})
   }
@@ -226,7 +232,7 @@ function highlight(sterm){
 
 function showReplace(searchterm, replaceterm){
   $("#replaceBtn").toggleClass("btn-danger", true);
-  let regex = new RegExp(searchterm, 'g');
+  let regex = new RegExp(regescape(searchterm), 'g');
   $(".foundString").each(function(n,e){
     let repl = $(e).clone().toggleClass("foundString").toggleClass("replaceString").attr("contenteditable", "true");
     repl.text(repl.text().replace(regex, replaceterm))
@@ -397,6 +403,12 @@ $("#textsearchform #searchterm, #replaceterm").on("keydown", function(e){
     }
   }
 });
+
+$("#textsearchform #replaceterm").on("input", function(e){
+  $(".replaceString").remove();
+  $("#replaceBtn").toggleClass("btn-danger", false);
+});
+
 
 $("#textsearchform").submit(function(event){
   console.log("submit");

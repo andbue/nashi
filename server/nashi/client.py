@@ -1,3 +1,26 @@
+"""
+This is some development towards a command line client for OCR.
+How to use it at the moment:
+
+import argparse
+from nashi.client import NashiClient, setup_train_args, params_from_args
+
+ncl = NashiClient("https://my.nashi.server.de.vu/nashi")
+ncl.login("bot@my.nashi.server.de.vu", "Secret123")
+ncl.add_gt("Some_Book")
+
+parser = argparse.ArgumentParser()
+setup_train_args(parser, omit=["files", "validation"])
+args = parser.parse_known_args()[0]
+params = params_from_args(args)
+
+ncl.train(params=params, training_to_validation=0.8)
+
+ncl.add_lines("Some_Book")
+ncl.predict("model.ckpt")
+ncl.results_write_server(index=1)
+"""
+
 import argparse
 import requests
 import zipfile
@@ -7,7 +30,6 @@ from lxml import etree, html
 from io import BytesIO
 from os import path, mkdir
 from PIL import Image
-import matplotlib.pyplot as plt
 import numpy as np
 from skimage.draw import polygon
 from calamari_ocr.scripts.train import setup_train_args

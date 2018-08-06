@@ -99,17 +99,11 @@
 
   <nav id="searchbar" class="navbar navbar-inverse navbar-fixed-bottom">
     <div class="container">
-      <div class="navbar-header">
-        <button aria-controls="navbar" aria-expanded="false" class="navbar-toggle collapsed" data-target="#45a8b4a89433dead69c5e68a69de1015c33b403e" data-toggle="collapse" type="button">
-          <span class="sr-only">Toggle navigation</span>
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-        </button>
+      <div>
         <span class="navbar-brand">Search:</span>
         <ul class="nav navbar-nav">
           <li>
-          <input type="text" name="searchterm" id="searchterm" class="form-control" id="searchTermInput" placeholder="Search term">
+          <input type="text" name="searchterm" id="searchterm" class="form-control" data-toggle="tooltip" data-html="true" placeholder="Search term" style="font-family:Andron Scriptor Web;">
         </li>
         <li>
           <button id="btn_search_backward" class="btn btn-primary"><span class="glyphicon glyphicon-chevron-up"/></button>
@@ -193,20 +187,78 @@
 		});
 		$("#searchterm").on("keydown", function(evt){
 			let e = evt.originalEvent;
-      if (typeof(nashi.editor.currentLine) !== "undefined"){
-        var lid = nashi.editor.currentLine[0].id;
-      } else {
-        var lid = "";
-      }
+
 			if (e.code == "Enter"){
+
+          if (typeof(nashi.editor.currentLine) !== "undefined"){
+            var lid = nashi.editor.currentLine[0].id;
+          } else {
+            var lid = "";
+          }
+
 					e.preventDefault();
 					nashi.search(st=$("#searchterm").val(),
 								       start=lid,
 								       dir=1,
 								       comments=$("#chk_search_comments").is(":checked"));
 			}
+
+      else if (e.code == "Insert" && e.shiftKey){
+        e.preventDefault();
+
+        let pos = evt.target.selectionStart;
+        let text = evt.target.value;
+        if (pos < 0) pos = 0;
+
+        let char = text.charAt(pos-1);
+        if (char in nashi.settings.vKeyboard){
+            let alt = nashi.settings.vKeyboard[char]
+            let displaykeys = "";
+            for (let i=0; i<alt.length; i++){ //"¹²³⁴⁵⁶⁷⁸⁹⁰"
+                displaykeys += "<span class='key'>"+"①②③④⑤⑥⑦⑧⑨⓪"[i]
+                                + "</span><span>&nbsp;"+alt[i]+"</span> ";
+            }
+            displaykeys = "<span style='font-family:Andron Scriptor Web;'>"+displaykeys+'</span>'
+            switchSearchVKeyboard(true, displaykeys);
+        }
+      }
+
+      else if (e.code.startsWith("Digit") && $("input#searchterm").data("bs.tooltip")){
+        e.preventDefault();
+        let pos = e.target.selectionStart;
+        let text = e.target.value;
+        if (pos < 0) pos = 0;
+        let char = text.charAt(pos-1);
+        if (char in nashi.settings.vKeyboard){
+          let nmb = parseInt(e.code[5]);
+          if (nmb == 0){ nmb = 10; }
+          if (nmb > nashi.settings.vKeyboard[char].length){ nmb = 1; }
+          let insert = nashi.settings.vKeyboard[char][nmb-1];
+          let newtext = text.slice(0, pos-1) + insert + text.slice(pos);
+          e.target.value = newtext;
+          e.target.setSelectionRange(pos,pos);
+        }
+      }
+
 		});
 
+    $("#searchterm").on("keyup", function(evt){
+      let e = evt.originalEvent;
+      if (e.code == "Insert" && $("input#searchterm").data("bs.tooltip")){
+        e.preventDefault();
+        switchSearchVKeyboard(false);
+      }
+    });
+
+    function switchSearchVKeyboard(enable=true, title=""){
+      let input = $("input#searchterm");
+      if (enable){
+        input.tooltip({"title": title}).tooltip("show");
+      } else {
+        input.tooltip("hide");
+        input.removeData("bs.tooltip");
+      }
+    }
 
     function showSettings(){
       $("#settings_dialog #settingsKeys tbody tr").remove()

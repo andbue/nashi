@@ -12,7 +12,7 @@ But wait, there's more: download now and get a complete webapp written in Python
 ### Keyboard shortcuts in the text input area
 - Tab/Shift+Tab switches to the next/previous input.
 - Shift+Enter saves the edits for the current line.
-- Shift+Insert shows an additional range of characters to select as an alternative to the character next to the cursor. Input one of them using the corresponding number. 
+- Shift+Insert shows an additional range of characters to select as an alternative to the character next to the cursor. Input one of them using the corresponding number while holding Insert.
 - Shift+ArrowDown opens a new comment field (Shift+ArrowUp switches back to the transcription line).
 ### Global keyboard shortcuts
 - Ctrl+Space Zooms in to line width
@@ -33,7 +33,7 @@ But wait, there's more: download now and get a complete webapp written in Python
 ```bash
 pip install nashi
 ```
-- Create a config.py file. For more options see the file default\_settings.py. If you want the app to send emails to users, change the mail settings there. Here is just a minimal example: 
+- Create a config.py file. For more options see the file default\_settings.py. If you want the app to send emails to users, change the mail settings there. Here is just a minimal example:
 ```python
 BOOKS_DIR = "/home/username/books/"
 LAREX_DIR = "/home/username/larex_books/"
@@ -72,4 +72,3 @@ flask run
 - Advanced text editing capabilities
 - Help, examples, and documentation
 - Artificial general intelligence that writes the code for me
-

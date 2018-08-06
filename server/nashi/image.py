@@ -9,6 +9,8 @@ from PIL import Image
 
 def cutout(pageimg, coordstring, scale=1):
     """Cuts out coords from pageimg."""
+    if len(pageimg.shape) > 2:
+        pageimg = pageimg[:, :, 0]
     coords = [p.split(",") for p in coordstring.split()]
     coords = np.array([(int(scale*int(c[1])), int(scale*int(c[0])))
                       for c in coords])
