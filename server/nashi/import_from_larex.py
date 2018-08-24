@@ -250,7 +250,7 @@ def create_book(bookpath):
     """ Return book database object for path in larex dir. """
     bookname = path.split(bookpath)[1]
     no_pages_total = len(glob(bookpath+"/*.png"))
-    book = Book.query.filter_by(name=bookname).one()
+    book = Book.query.filter_by(name=bookname).first()
     if not book:
         book = Book(name=bookname, no_pages_total=no_pages_total)
     else:
@@ -266,7 +266,7 @@ def add_page(book, xmlfile, commit=True, scale=None):
         if book.name.endswith("_ar") else 'horizontal-lr'
     bookpath = path.split(xmlfile)[0]
     pagename = path.split(xmlfile)[1].split(".")[0]
-    page = Page.query.filter_by(book_id=book.id, name=pagename).one()
+    page = Page.query.filter_by(book_id=book.id, name=pagename).first()
     if not page:
         page = Page(book=book, name=pagename)
 
