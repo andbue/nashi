@@ -170,7 +170,8 @@ def segment(im, text_direction='horizontal-lr', scale=None, maxcolseps=2,
             'script_detection': False}
 
 
-def pagexmllineseg(xmlfile, imgpath, text_direction='horizontal-lr'):
+def pagexmllineseg(xmlfile, imgpath, text_direction='horizontal-lr',
+                   scale=None):
     root = etree.parse(xmlfile).getroot()
     ns = {"ns": root.nsmap[None]}
 
@@ -219,7 +220,7 @@ def pagexmllineseg(xmlfile, imgpath, text_direction='horizontal-lr'):
             else:
                 # if line in
                 lines = segment(cropped, text_direction=text_direction,
-                                maxcolseps=-1)
+                                scale=scale, maxcolseps=-1)
 
                 lines = lines["lines"] if "lines" in lines else []
         else:
@@ -257,7 +258,7 @@ def create_book(bookpath):
     return book
 
 
-def add_page(book, xmlfile, commit=True):
+def add_page(book, xmlfile, commit=True, scale=None):
     """ Add page from PageXML file to book (segment lines, update version...).
         TODO: add reading order
     """
@@ -270,7 +271,8 @@ def add_page(book, xmlfile, commit=True):
         page = Page(book=book, name=pagename)
 
     page.data, page.no_lines_segm = \
-        pagexmllineseg(xmlfile, bookpath, text_direction=text_direction)
+        pagexmllineseg(xmlfile, bookpath, text_direction=text_direction,
+                       scale=scale)
     if commit:
         db_session.add(book)
         db_session.commit()

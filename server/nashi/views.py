@@ -151,18 +151,24 @@ def ocrdata():
             for lid, text in pdict.items():
                 linexml = root.find('.//ns:TextLine[@id="'+lid+'"]',
                                     namespaces=ns)
+                if linexml is None:
+                    continue
                 textequivxml = linexml.find('./ns:TextEquiv[@index="{}"]'
                                             .format(data["index"]),
                                             namespaces=ns)
                 if textequivxml is None:
-                    textequivxml = etree.SubElement(linexml, "TextEquiv",
+                    textequivxml = etree.SubElement(linexml,
+                                                    "{{{}}}TextEquiv"
+                                                    .format(ns["ns"]),
                                                     attrib={"index":
                                                             str(data["index"])
                                                             })
                 unicodexml = textequivxml.find('./ns:Unicode',
                                                namespaces=ns)
                 if unicodexml is None:
-                    unicodexml = etree.SubElement(textequivxml, "Unicode")
+                    unicodexml = etree.SubElement(textequivxml,
+                                                  "{{{}}}Unicode"
+                                                  .format(ns["ns"]))
                 unicodexml.text = text
                 cnt += 1
             p.no_lines_ocr = int(root.xpath('count(//ns:TextLine'
@@ -501,6 +507,8 @@ def pagedata(bookname, pagename):
             status = "empty"
             if textcontent:
                 status = "ocr" if int(lowestindex) else "gt"
+            if textcontent is None:
+                textcontent = ""
             pagemap[l_id]["text"] = {"status": status, "content": textcontent}
         return jsonify(page=pagename, image=image, lines=pagemap,
                        regions=regionmap, direction=direction)
@@ -544,7 +552,8 @@ def pagedata(bookname, pagename):
                 tequiv = line.find('.//ns:TextEquiv[@index="0"]',
                                    namespaces=ns)
                 if tequiv is None:
-                    tequiv = etree.SubElement(line, "TextEquiv",
+                    tequiv = etree.SubElement(line, "{{{}}}TextEquiv"
+                                              .format(ns["ns"]),
                                               attrib={"index": "0"})
                     unicodexml = etree.SubElement(tequiv, "Unicode")
                 else:
