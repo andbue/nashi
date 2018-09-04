@@ -407,6 +407,34 @@ def getpng(bookname, file):
                                file+".png")
 
 
+@app.route('/books/<bookname>/<pagename>/comments_jump', methods=['POST'])
+@login_required
+def comments_jump(bookname, pagename):
+    book = Book.query.filter_by(name=bookname).one()
+    pnames = sorted([p.name for p in book.pages])
+    data = request.json
+    reverse = data["dir"] < 0
+    if reverse:
+        pnames.reverse()
+    pnames = pnames[pnames.index(pagename) + 1:]
+    result = {"page": "", "line": ""}
+    for p in pnames:
+        page = Page.query.filter_by(book_id=book.id, name=p).one()
+        root = etree.fromstring(page.data)
+        ns = {"ns": root.nsmap[None]}
+        found = root.xpath('//ns:TextLine', namespaces=ns)
+        if reverse:
+            found.reverse()
+        for textline in found:
+            if "comments" in textline.attrib and textline.attrib["comments"]:
+                result["page"] = p
+                result["line"] = textline.attrib["id"]
+                break
+        if result["page"]:
+            break
+    return jsonify(result=result)
+
+
 @app.route('/books/<bookname>/<pagename>/search_continue', methods=['POST'])
 @login_required
 def search_continue(bookname, pagename):

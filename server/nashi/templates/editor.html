@@ -102,7 +102,12 @@
       <div>
         <span class="navbar-brand">Search:</span>
         <ul class="nav navbar-nav">
-          <li>
+        <li>
+          <button id="btn_comment_backward" class="btn btn-secondary"><span class="glyphicon glyphicon-chevron-left"/></button>
+          <button id="btn_comment_forward" class="btn btn-secondary"><span class="glyphicon glyphicon-chevron-right"/></button>
+        </li>
+
+        <li>
           <input type="text" name="searchterm" id="searchterm" class="form-control" data-toggle="tooltip" data-html="true" placeholder="Search term" style="font-family:Andron Scriptor Web;">
         </li>
         <li>
@@ -163,6 +168,24 @@
         </li>
     `);
 
+    $("#btn_comment_backward").on("click",function(e){
+      if (typeof(nashi.editor.currentLine) !== "undefined"){
+        var lid = nashi.editor.currentLine[0].id;
+      } else {
+        var lid = "";
+      }
+      nashi.jump_comment(start=lid, dir=-1);
+    });
+
+    $("#btn_comment_forward").on("click",function(e){
+      if (typeof(nashi.editor.currentLine) !== "undefined"){
+        var lid = nashi.editor.currentLine[0].id;
+      } else {
+        var lid = "";
+      }
+			nashi.jump_comment(start=lid, dir=1)
+    });
+
 		$("#btn_search_backward").on("click",function(e){
       if (typeof(nashi.editor.currentLine) !== "undefined"){
         var lid = nashi.editor.currentLine[0].id;
@@ -174,6 +197,7 @@
 						       dir=-1,
 						       comments=$("#chk_search_comments").is(":checked"));
 		});
+
 		$("#btn_search_forward").on("click",function(e){
       if (typeof(nashi.editor.currentLine) !== "undefined"){
         var lid = nashi.editor.currentLine[0].id;
@@ -185,6 +209,7 @@
 						       dir=1,
 						       comments=$("#chk_search_comments").is(":checked"));
 		});
+
 		$("#searchterm").on("keydown", function(evt){
 			let e = evt.originalEvent;
 

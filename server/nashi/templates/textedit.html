@@ -215,10 +215,7 @@ function toggleimg(btn){
 }
 
 function regescape(string){
-  return string.replace("\\", "\\\\")
-               .replace("*", "\\*")
-               .replace(".", "\\.");
-
+  return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
 
 function highlight(sterm){

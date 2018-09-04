@@ -425,7 +425,7 @@ Nashi.prototype.saveCommentLine = function(){
       this.editor.commentline.data("dontsave", false);
   } else {
     let content = $("<div>"+this.editor.commentline.html().replace("<br>", "\n")+"</div>")
-                  .text().replace("\n", "<br>") 
+                  .text().replace("\n", "<br>")
     if (this.pagedata.lines[cur].comments != content){
       this.pagedata.lines[cur].comments = content;
 	    var tgl = content ? true : false;
@@ -1048,6 +1048,47 @@ Nashi.prototype.delActivePoints = function(){
 
 
 /////SEARCH FUNCTIONS///////////////////////////////////////////////////////////
+
+Nashi.prototype.jump_comment = function(start="", dir=1){
+  let lines = Object.keys(this.pagedata.lines);
+  let found = false;
+  console.log(start)
+  $("#searchmessage").text("Searching…");
+  if (!start){start=lines[0];}
+  if (dir==-1){lines.reverse();}
+  console.log("start search at " + start);
+  for (var ix=lines.indexOf(start)+1; ix<lines.length; ix++){
+    if (this.pagedata.lines[lines[ix]].comments != ""){
+      this.openLine($("#"+lines[ix], this.editor.svg0)[0]);
+      this.editor.inputbox.toggle(true);
+      window.scrollTo(0, this.editor.inputbox.offset().top - 150);
+      found = true;
+      $("#searchmessage").text("");
+      break;
+    }
+  }
+  if (!found){
+		$("#searchmessage").text("Searching on other pages...");
+		data = {dir: dir}
+    data = JSON.stringify(data);
+    $.ajax({
+			url: this.pagedata.page + '/comments_jump',
+			type: 'POST',
+			contentType: 'application/json;charset=UTF-8',
+      context: this,
+			data: data,
+			success: function( data ) {
+				if (data.result.page){
+					found = true;
+					$("#searchmessage").text("");
+          this.editor.inputbox.toggle(false);
+          $("#group polygon", this.editor.svg0).remove();
+          this.getData(data.result.page, line=data.result.line);
+				} else {	$("#searchmessage").text("Not found."); }
+	     }
+		});
+	}
+};
 
 
 Nashi.prototype.search = function(st="", start="", dir=1, comments=false){
