@@ -330,9 +330,10 @@ def textreplace(bookname):
     return "Wrote {} lines to layer {}.".format(cnt, layer)
 
 
-@app.route('/books/<bookname>/<pageno>/<lineid>.png')
+@app.route('/books/<bookname>/<pageno>/<lineid>.png', methods=['GET'])
 @login_required
 def getlineimage(bookname, pageno, lineid):
+    context = float(request.args.get("context", "0"))
     book = Book.query.filter_by(name=bookname).one()
     xml = Page.query.filter_by(book_id=book.id, name=pageno).one().data
     root = etree.fromstring(xml)
@@ -352,7 +353,7 @@ def getlineimage(bookname, pageno, lineid):
             fn = fn[:-7] + "raw.png"
     im = getsnippet("{}/{}/{}/{}".format(app.config['BOOKS_DIR'], bookname,
                                          app.config['IMAGE_SUBDIR'], fn),
-                    coords, imgshape)
+                    coords, imgshape, context=context)
     return Response(im, mimetype="image/png")
 
 

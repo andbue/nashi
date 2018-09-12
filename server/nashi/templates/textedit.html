@@ -80,9 +80,10 @@
         </div>
       <button type="submit" class="btn btn-primary"><span class="glyphicon glyphicon-search"></span> Search</button>
       <div class="form-group mb-2">
-        <input type="text" name="replaceterm" id="replaceterm" class="form-control" id="replaceTermInput" placeholder="Replace term" style="font-family:Andron Scriptor Web;">
+        <input type="text" name="replaceterm" id="replaceterm" class="form-control" placeholder="Replace term" style="font-family:Andron Scriptor Web;">
       </div>
       <button type="button" id="replaceBtn" class="btn" onclick="startReplace()">Replace</button>
+        <input type="text" name="context" id="context" class="form-control" placeholder="Context in lines" style="font-family:Andron Scriptor Web;">
     </form>
     <div>
       <span id="vkeyboard" style="font-family:Andron Scriptor Web; display: none;"></span>
@@ -210,7 +211,10 @@ function toggleimg(btn){
     let page = row.children[1].textContent;
     let line = row.children[2].textContent;
     let url = page + "/" + line + ".png";
-    $(row.children[3]).prepend(`<img src="${url}" height="16px"></img><br/>`)
+    let context = $("#context").val();
+    if (context == ""){context = "0"};
+    let height = ((2*parseFloat(context)) + 1) * 16
+    $(row.children[3]).prepend(`<img src="${url}?context=${context}" height="${height}px"></img><br/>`)
   }
 }
 
