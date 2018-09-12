@@ -13,7 +13,7 @@ def coordstringtoarray(coordstring, scale=1):
                      for c in coords])
 
 
-def expandcoords(coords, imgshape, context):
+def expandcoords(coords, imgshape, context, sides=1):
     if type(coords) != np.ndarray:
         coords = coordstringtoarray(coords)
     print(coords)
@@ -21,8 +21,8 @@ def expandcoords(coords, imgshape, context):
     lineh = max([p[0] for p in coords]) - min([p[0] for p in coords])
     xmin = max(0, int(min(p[0] for p in coords) - (context * lineh)))
     xmax = min(imgshape[1], int(max(p[0] for p in coords) + (context * lineh)))
-    ymin = min(p[1] for p in coords)
-    ymax = max(p[1] for p in coords)
+    ymin = max(0, int(min(p[1] for p in coords) - (sides * lineh)))
+    ymax = min(imgshape[0], int(max(p[1] for p in coords) + (sides * lineh)))
     return np.array([(xmin, ymin), (xmin, ymax), (xmax, ymax), (xmax, ymin)])
 
 
