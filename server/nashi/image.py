@@ -13,16 +13,18 @@ def coordstringtoarray(coordstring, scale=1):
                      for c in coords])
 
 
-def expandcoords(coords, imgshape, context, sides=1):
+def expandcoords(coords, imgshape, context, sides=1, rcoords=None):
     if type(coords) != np.ndarray:
         coords = coordstringtoarray(coords)
+    if rcoords and type(rcoords) != np.ndarray:
+        rcoords = coordstringtoarray(rcoords)
     print(coords)
     print(type(coords))
     lineh = max([p[0] for p in coords]) - min([p[0] for p in coords])
     xmin = max(0, int(min(p[0] for p in coords) - (context * lineh)))
     xmax = min(imgshape[1], int(max(p[0] for p in coords) + (context * lineh)))
-    ymin = max(0, int(min(p[1] for p in coords) - (sides * lineh)))
-    ymax = min(imgshape[0], int(max(p[1] for p in coords) + (sides * lineh)))
+    ymin = min(p[1] for p in rcoords)
+    ymax = max(p[1] for p in rcoords)
     return np.array([(xmin, ymin), (xmin, ymax), (xmax, ymax), (xmax, ymin)])
 
 
@@ -42,13 +44,13 @@ def cutout(pageimg, coords, scale=1):
     return box, offset
 
 
-def getsnippet(filename, coords, imgshape=None, context=0):
+def getsnippet(filename, coords, imgshape=None, context=0, rcoords=None):
     pageimg = skimage_io.imread(filename)
     scale = 1
     if imgshape:
         scale = pageimg.shape[1] / imgshape[0]
     if context:
-        coords = expandcoords(coords, imgshape, context)
+        coords = expandcoords(coords, imgshape, context, rcoords=rcoords)
     cut = cutout(pageimg, coords, scale)[0]
     file = BytesIO()
     image = Image.fromarray(cut)
