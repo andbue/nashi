@@ -40,6 +40,14 @@ def import_folder(bookpath, bookname="", pages="*.xml"):
         root = etree.parse(xmlfile).getroot()
         ns = {"ns": root.nsmap[None]}
 
+        # convert point notation from pagexml version 2013
+        for c in root.xpath("//ns:Coords[not(@points)]", namespaces=ns):
+            cc = []
+            for point in c.xpath("./ns:Point", namespaces=ns):
+                cc.append(point.attrib["x"]+","+point.attrib["y"])
+                c.remove(point)
+            c.attrib["points"] = " ".join(cc)
+
         textregions = root.xpath('//ns:TextRegion', namespaces=ns)
 
         page.no_lines_segm = int(root.xpath("count(//ns:TextLine)",
@@ -49,7 +57,9 @@ def import_folder(bookpath, bookname="", pages="*.xml"):
         page.no_lines_ocr = int(root.xpath('count(//ns:TextLine[count'
                                            '(./ns:TextEquiv[@index>0])>0])',
                                            namespaces=ns))
-        page.data = etree.tounicode(root.getroottree())
+        page.data = etree.tounicode(root.getroottree()).replace(
+            "http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-03-19",
+            "http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15")
         cnt += 1
 
     db_session.add(book)
