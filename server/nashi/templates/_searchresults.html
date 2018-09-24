@@ -8,11 +8,11 @@ Select
   <table class="table">
     <thead>
       <tr>
-        <th>Replace</th>
+        <th>Repl.</th>
         <th>Page</th>
         <th>Line</th>
         <th>Text</th>
-        <th>Image</th>
+        <th>Toggle</th>
       </tr>
     </thead>
     <tbody>
@@ -21,16 +21,17 @@ Select
         <td class="col-md-1"><input class="form-check-input" type="checkbox"></td>
         <td class="pinfo col-md-1">{{ r[0] }}</td>
         <td class="linfo col-md-1">{{ r[1] }}</td>
+
         <td class="text">
           {% if r[3] %}
           <span class="comment" style="background:yellow">
-            <span class="glyphicon glyphicon-paperclip"></span>
-            <span class="commentString">{{r[3]|safe}}</span>
+            <span class="glyphicon glyphicon-paperclip commentlabel"></span>
+            <span class="commentString" contenteditable="true">{{r[3]|safe}}</span>
           </span>
           <br/>
           {% endif %}
           <span class="foundString">{{ r[2] }}</span></td>
-        <td class="col-md-1"><button class="btn" onclick="toggleimg(this)"><span class="glyphicon glyphicon-picture"></span></button></td>
+        <td class="col-md-1"><button class="btn" onclick="togglecomment(this)"><span class="glyphicon glyphicon-paperclip commentlabel"></span></button><button class="btn" onclick="toggleimg(this)"><span class="glyphicon glyphicon-picture"></span></button></td>
       </tr>
       {% endfor %}
     </tbody>

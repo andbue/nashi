@@ -272,34 +272,59 @@ def chartable(bookname):
 @login_required
 def textsearch(bookname):
     data = request.get_json()
-    searchterm = data["searchterm"]
-    print('Searchterm: <{}>'.format(searchterm))
     layer = data["layer"]
-    book = Book.query.filter_by(name=bookname).one()
-    results = []
 
-    for p in book.pages:
-        root = etree.fromstring(p.data)
-        ns = {"ns": root.nsmap[None]}
-        found = [t for t in root.xpath('//ns:TextEquiv[@index="{}"]'
-                                       .format(layer) +
-                                       '/ns:Unicode/text()',
-                                       namespaces=ns) if searchterm in t]
-        for o in found:
-            text = str(o)
-            textregion = o.getparent().getparent().getparent()
-            id = textregion.attrib["id"]
-            if "comments" in textregion.attrib:
+    if data.get("commented", False):
+        book = Book.query.filter_by(name=bookname).one()
+        results = []
+        for p in book.pages:
+            root = etree.fromstring(p.data)
+            ns = {"ns": root.nsmap[None]}
+            found = [t for t in root.xpath('//ns:TextLine[@comments]/' +
+                                           'ns:TextEquiv[@index="{}"]'
+                                           .format(layer), namespaces=ns)
+                     if t.getparent().attrib["comments"]]
+            for o in found:
+                text = o.xpath('./ns:Unicode/text()', namespaces=ns)
+                text = str(text[0]) if text else ""
+                textregion = o.getparent()
+                id = textregion.attrib["id"]
                 comment = textregion.attrib["comments"]
-            else:
-                comment = ""
-            results.append((p.name, id, text, comment))
-        if len(results) > 10000:
-            return render_template("_searchresults.html", results=results,
-                                   cnt="{} (there could be more,".format(len(
-                                    results)) + "max. exceeded)")
-    return render_template("_searchresults.html", results=results,
-                           cnt=len(results))
+                results.append((p.name, id, text, comment))
+            if len(results) > 10000:
+                return render_template("_searchresults.html", results=results,
+                                       cnt="{} (there could be more,"
+                                       .format(len(results))+"max. exceeded)")
+        return render_template("_searchresults.html", results=results,
+                               cnt=len(results))
+
+    else:
+        searchterm = data["searchterm"]
+        book = Book.query.filter_by(name=bookname).one()
+        results = []
+
+        for p in book.pages:
+            root = etree.fromstring(p.data)
+            ns = {"ns": root.nsmap[None]}
+            found = [t for t in root.xpath('//ns:TextEquiv[@index="{}"]'
+                                           .format(layer) +
+                                           '/ns:Unicode/text()',
+                                           namespaces=ns) if searchterm in t]
+            for o in found:
+                text = str(o)
+                textregion = o.getparent().getparent().getparent()
+                id = textregion.attrib["id"]
+                if "comments" in textregion.attrib:
+                    comment = textregion.attrib["comments"]
+                else:
+                    comment = ""
+                results.append((p.name, id, text, comment))
+            if len(results) > 10000:
+                return render_template("_searchresults.html", results=results,
+                                       cnt="{} (there could be more,"
+                                       .format(len(results))+"max. exceeded)")
+        return render_template("_searchresults.html", results=results,
+                               cnt=len(results))
 
 
 @app.route('/books/<bookname>/_textreplace.html', methods=['POST'])
@@ -310,7 +335,8 @@ def textreplace(bookname):
     for r in data["replacements"]:
         if r["page"] not in replacements:
             replacements[r["page"]] = []
-        replacements[r["page"]].append((r["line"], r["text"].strip()))
+        replacements[r["page"]].append((r["line"], r["text"].strip(),
+                                        r["comment"].strip()))
     layer = data["layer"]
     book = Book.query.filter_by(name=bookname).one()
     cnt = 0
@@ -324,6 +350,7 @@ def textreplace(bookname):
                             '/ns:TextEquiv[@index="{}"]'.format(layer) +
                             '/ns:Unicode', namespaces=ns)[0]
             uc.text = r[1]
+            uc.getparent().getparent().attrib["comments"] = r[2]
             cnt += 1
         p.data = etree.tounicode(root.getroottree())
     db_session.commit()

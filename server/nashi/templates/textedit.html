@@ -74,7 +74,6 @@
         <select class="form-control layerSelect" id="searchlayer">
         </select>
       </div>
-
         <div class="form-group mb-2">
           <input type="text" name="searchterm" id="searchterm" class="form-control" id="searchTermInput" placeholder="Search term" style="font-family:Andron Scriptor Web;">
         </div>
@@ -83,6 +82,7 @@
         <input type="text" name="replaceterm" id="replaceterm" class="form-control" placeholder="Replace term" style="font-family:Andron Scriptor Web;">
       </div>
       <button type="button" id="replaceBtn" class="btn" onclick="startReplace()">Replace</button>
+      <button type="button" id="commentsBtn" class="btn" onclick="searchComments()">Comments</button>
         <input type="text" name="context" id="context" class="form-control" placeholder="Context in lines" style="font-family:Andron Scriptor Web;">
     </form>
     <div>
@@ -102,7 +102,8 @@ label {min-width: 7em;}
 body {
   margin-top: 50px;
 }
-
+span.comment.delete > .commentString {text-decoration: line-through;}
+.commentString {padding-left: 1px; padding-right: 1px;}
 </style>
 {% endblock %}
 
@@ -218,6 +219,22 @@ function toggleimg(btn){
   }
 }
 
+function togglecomment(btn){
+  let row = btn.parentNode.parentNode;
+  let txt = $(row.children[3]);
+  let comment = txt.find(".comment");
+  if (comment.length){
+    $(comment).toggleClass("delete");
+  } else {
+    txt.prepend(`<span class='comment' style='background:yellow'>
+      <span class='glyphicon glyphicon-paperclip commentlabel'></span>
+      <span class='commentString' contenteditable='true'></span>
+    </span>
+    <br/>`);
+  }
+}
+
+
 function regescape(string){
   return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
@@ -257,9 +274,15 @@ function startReplace(){
     let layer = $("#searchlayer").val();
     let rs = checked.map((n, e)=>{
       let p = $(e).parent().nextAll(".pinfo").text();
-      let l = $(e).parent().nextAll(".linfo").text()
-      let t = $(e).parent().nextAll(".text").children(".replaceString").text()
-      return {"page": p, "line": l, "text": t};
+      let l = $(e).parent().nextAll(".linfo").text();
+      let t = $(e).parent().nextAll(".text").children(".replaceString").text();
+      let c = "";
+      let com = $(e).parent().nextAll(".text").children(".comment:not(.delete)");
+      if (com.length){
+        c = $("<div>"+com.first().children(".commentString").html().replace("<br>", "\n")+"</div>")
+                      .text().replace("\n", "<br>")
+      }
+      return {"page": p, "line": l, "text": t, "comment": c};
     }).toArray();
     $("#searchresult").text("Replacing...");
     $.ajax({
@@ -410,9 +433,24 @@ $("#textsearchform #replaceterm").on("input", function(e){
   $("#replaceBtn").toggleClass("btn-danger", false);
 });
 
+function searchComments(){
+  $("#replaceBtn").toggleClass("btn-danger", false);
+  $("#searchresult").html("Searching commented lines...");
+  $.ajax({
+    type: "POST",
+    url: "{{ url_for('textsearch', bookname=bookname) }}",
+    contentType: 'application/json;charset=UTF-8',
+    data: JSON.stringify({
+      commented: true,
+      layer: $("#searchlayer").val()
+    }),
+    success : function(data){
+      $("#searchresult").html(data);
+    }
+  });
+}
 
 $("#textsearchform").submit(function(event){
-  console.log("submit");
     // cancels the form submission
     event.preventDefault();
     $("#searchresult").html("Searching...");
