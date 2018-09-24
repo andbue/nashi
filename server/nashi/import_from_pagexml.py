@@ -16,8 +16,9 @@ from lxml import etree
 import argparse
 
 
-def import_folder(bookpath):
-    bookname = path.split(bookpath)[1]
+def import_folder(bookpath, bookname="", pages="*.xml"):
+    if not bookname:
+        bookname = path.split(bookpath)[1]
     no_pages_total = len(glob(bookpath+"/*.xml"))
     try:
         book = Book.query.filter_by(name=bookname).one()
@@ -27,7 +28,7 @@ def import_folder(bookpath):
 
     print('Importing book "{}"...'.format(bookname))
     cnt = 0
-    for xmlfile in sorted(glob(bookpath+"/*.xml")):
+    for xmlfile in sorted(glob(bookpath+"/"+pages)):
         pagename = path.split(xmlfile)[1].split(".")[0]
         print("Importing page {}...".format(pagename))
 
@@ -61,8 +62,14 @@ def main():
     parser.add_argument("bookfolder", type=str,
                         help="Give the directory that contains the PageXML "
                         "files to import.")
+    parser.add_argument("bookname", type=str, default="", help="The name of "
+                        "the book. Defaults to the last folder in the path of "
+                        "the given bookfolder.")
+    parser.add_argument("pages", type=str, default="*.xml", help="A wildcard "
+                        "for the pages to import. By default it imports all "
+                        "xml files in the given directory.")
     args = parser.parse_args()
-    import_folder(args.bookfolder)
+    import_folder(args.bookfolder, args.bookname, args.pages)
 
 
 if __name__ == "__main__":

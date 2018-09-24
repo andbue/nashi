@@ -1,5 +1,6 @@
 
 DEBUG = True
+LOGIN_DISABLED = True
 SECRET_KEY = b'Q\x0c^*)K#<`Kx29Hi=.qg/\rxD>hw65]Sje'
 SECURITY_PASSWORD_SALT = b'kB]JW#p\r6|CJWgAI;_]KO\r5sU.R~HMHn'
 SECURITY_CHANGEABLE = True
