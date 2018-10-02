@@ -284,6 +284,14 @@ def textsearch(bookname):
                                            'ns:TextEquiv[@index="{}"]'
                                            .format(layer), namespaces=ns)
                      if t.getparent().attrib["comments"]]
+            filter = data.get("filter", False)
+            if filter == "#F":
+                found = [t for t in found if t.getparent().attrib["comments"]
+                                              .startswith("#F")]
+            elif filter == "~#F":
+                found = [t for t in found if not t.getparent()
+                                                  .attrib["comments"]
+                                                  .startswith("#F")]
             for o in found:
                 text = o.xpath('./ns:Unicode/text()', namespaces=ns)
                 text = str(text[0]) if text else ""

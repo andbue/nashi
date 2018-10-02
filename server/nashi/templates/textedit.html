@@ -84,6 +84,16 @@
       <button type="button" id="replaceBtn" class="btn" onclick="startReplace()">Replace</button>
       <button type="button" id="commentsBtn" class="btn" onclick="searchComments()">Comments</button>
         <input type="text" name="context" id="context" class="form-control" placeholder="Context in lines" style="font-family:Andron Scriptor Web;">
+        <div class="btn-group">
+          <button type="button" id="commentsBtn" class="btn" onclick="searchComments()">Comments</button>
+          <button type="button" class="btn dropdown-toggle" data-toggle="dropdown">
+            <span class="caret"></span>
+          </button>
+          <ul class="dropdown-menu">
+            <li><a onclick="searchComments('#F')">only #F</a></li>
+            <li><a onclick="searchComments('~#F')">not #F</a></li>
+          </ul>
+        </div>
     </form>
     <div>
       <span id="vkeyboard" style="font-family:Andron Scriptor Web; display: none;"></span>
@@ -433,7 +443,7 @@ $("#textsearchform #replaceterm").on("input", function(e){
   $("#replaceBtn").toggleClass("btn-danger", false);
 });
 
-function searchComments(){
+function searchComments(filter=""){
   $("#replaceBtn").toggleClass("btn-danger", false);
   $("#searchresult").html("Searching commented lines...");
   $.ajax({
@@ -442,6 +452,7 @@ function searchComments(){
     contentType: 'application/json;charset=UTF-8',
     data: JSON.stringify({
       commented: true,
+      filter: filter,
       layer: $("#searchlayer").val()
     }),
     success : function(data){
