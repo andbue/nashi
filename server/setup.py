@@ -5,7 +5,7 @@ with open("../README.md") as f:
 
 setup(
     name='nashi',
-    version='0.0.22',
+    version='0.0.24',
     license='GPL_v3.0',
     author='Andreas Büttner',
     author_email='andreas.buettner@uni-wuerzburg.de',
@@ -21,8 +21,8 @@ setup(
             'nashi-import=nashi.import_from_pagexml:main',
         ],
     },
+    python_requires='>=3',
     install_requires=[
-        'Flask',
         'sqlalchemy',
         'flask_security',
         'bcrypt',
@@ -33,7 +33,8 @@ setup(
         'lxml',
         'pillow',
         'kraken',
-        'scikit-image'
+        'scikit-image',
+        'Flask'
     ],
     classifiers=(
         'Programming Language :: Python :: 3',

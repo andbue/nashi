@@ -516,7 +516,7 @@ def search_continue(bookname, pagename):
 @app.route('/books/<bookname>/<pagename>/data', methods=['POST', 'GET'])
 @login_required
 def pagedata(bookname, pagename):
-    pnamesplits = pagename.split("::")
+    pnamesplits = pagename.split("+")
     command = ""
     if len(pnamesplits) == 2:
         pagename, command = pnamesplits

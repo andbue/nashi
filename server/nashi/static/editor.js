@@ -286,7 +286,7 @@ Nashi.prototype.shortcuts = {
 
 
 
-Nashi.prototype.init = function(selector, settings=defaultSettings, page="_::first") {
+Nashi.prototype.init = function(selector, settings=defaultSettings, page="_+first") {
 	this.settings = settings;
   applyCSS(settings);
 	selector.html(`
@@ -375,10 +375,10 @@ Nashi.prototype.changePage = function(dir){
 	this.editor.inputbox.toggle(false);
 	switch (dir) {
 		case -1:
-			this.getData(this.pagedata.page + "::prev");
+			this.getData(this.pagedata.page + "+prev");
 			break;
 		default:
-			this.getData(this.pagedata.page + "::next");
+			this.getData(this.pagedata.page + "+next");
 	}
 };
 
