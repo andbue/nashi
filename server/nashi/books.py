@@ -31,7 +31,7 @@ def scan_bookfolder(bookfolder, img_subdir):
 
 def upload_pagexml(file):
     try:
-        zf = zipfile.ZipFile(file)
+        zf = zipfile.ZipFile(file._file)
     except zipfile.BadZipFile:
         return "Upload failed. Please upload a valid zip file."
     result = {}
@@ -54,10 +54,10 @@ def upload_pagexml(file):
         try:
             page = Page.query.filter_by(book_id=book.id, name=pagename).one()
         except NoResultFound:
-            return "Import aborted. Book {}, page {} is not in your library."\
-                   .format(bookname, pagename)
-        with zf.open(fn) as fo:
-            pagexml = fo.read().decode("utf-8")
+            page = Page(book=book, name=pagename)
+        # return "Import aborted. Book {}, page {} is not in your library."\
+        #       .format(bookname, pagename)
+        pagexml = zf.read(fn).decode("utf-8")
         root = etree.fromstring(pagexml)
         ns = {"ns": root.nsmap[None]}
         page.no_lines_segm = int(root.xpath("count(//ns:TextLine)",

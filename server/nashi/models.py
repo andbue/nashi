@@ -51,6 +51,7 @@ class Book(Base):
     name = Column(String(80), unique=True)
     ocrpid = Column(String(80), unique=True)
     no_pages_total = Column(Integer, default=0)
+    access = Column(Integer, ForeignKey('user.id'))
     pages = relationship("Page", backref="book")
     models = relationship("OCRModel", backref="book")
 

@@ -17,7 +17,7 @@ from copy import deepcopy
 from sqlalchemy.orm.exc import NoResultFound
 
 from nashi import app
-from nashi.models import Book, Page, EditorSettings
+from nashi.models import Book, Page, EditorSettings, User
 from nashi.database import db_session
 from nashi.books import scan_bookfolder, copy_to_larex, upload_pagexml,\
     getlayers
@@ -30,6 +30,15 @@ from nashi.image import getsnippet
 def index():
     books = {}
     for book in Book.query.all():
+        if current_user.is_anonymous:
+            owned = 0
+        elif current_user.id == book.access:
+            owned = 1
+        elif book.access is None:
+            owned = 0
+        else:
+            owned = -1
+
         ocrstatus = book.ocrpid if book.ocrpid else "N/A"
         books[book.name] = {
                 "no_pages_total": book.no_pages_total,
@@ -37,7 +46,8 @@ def index():
                 "no_lines_segm": sum([p.no_lines_segm for p in book.pages]),
                 "no_lines_gt": sum([p.no_lines_gt for p in book.pages]),
                 "no_lines_ocr": sum([p.no_lines_ocr for p in book.pages]),
-                "ocrstatus": ocrstatus
+                "ocrstatus": ocrstatus,
+                "owned": owned
                 }
 
     return render_template('index.html', books=books)
@@ -51,14 +61,35 @@ def library(action=""):
         scan_bookfolder(app.config["BOOKS_DIR"], app.config["IMAGE_SUBDIR"])
         res = jsonify(success=1)
     if action == "upload_pagexml":
+        scan_bookfolder(app.config["BOOKS_DIR"], app.config["IMAGE_SUBDIR"])
         res = upload_pagexml(request.files["importzip"])
     return res
+
+
+@app.route('/ownership/<bookname>')
+@login_required
+def ownership(bookname):
+    book = Book.query.filter_by(name=bookname).one()
+    if current_user.is_anonymous:
+        flash("You are anonymous, ownership of {} cannot be changed."
+              .format(bookname))
+    elif current_user.id == book.access:
+        book.access = None
+        flash("Ownership of {} returned.".format(bookname))
+    elif book.access and current_user.id != book.access:
+        email = User.query.filter_by(id=book.access).one().email
+        flash("Book {} is owned by {}.".format(bookname, email))
+    else:
+        book.access = current_user.id
+        flash("Ownership of {} claimed successfully.".format(bookname))
+    db_session.commit()
+    return redirect(url_for("index"))
 
 
 @app.route('/_libedit/<bookname>/<action>', methods=['POST', 'GET'])
 @login_required
 def libedit(bookname, action=""):
-    book = Book.query.filter_by(name=bookname).first()
+    book = Book.query.filter_by(name=bookname).one()
     if not book:
         return jsonify(success=0)
 
