@@ -18,8 +18,6 @@ def expandcoords(coords, imgshape, context, sides=1, rcoords=None):
         coords = coordstringtoarray(coords)
     if rcoords and type(rcoords) != np.ndarray:
         rcoords = coordstringtoarray(rcoords)
-    print(coords)
-    print(type(coords))
     lineh = max([p[0] for p in coords]) - min([p[0] for p in coords])
     xmin = max(0, int(min(p[0] for p in coords) - (context * lineh)))
     xmax = min(imgshape[1], int(max(p[0] for p in coords) + (context * lineh)))

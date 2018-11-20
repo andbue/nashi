@@ -67,6 +67,15 @@ def import_folder(bookpath, bookname="", pages="*.xml"):
     print('{} pages imported for book {}.'.format(cnt, bookname))
 
 
+def bookdelete():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("bookname", type=str, help="The name of the book.")
+    args = parser.parse_args()
+    db_session.delete(Book.query.filter_by(name=args.bookname).one())
+    db_session.commit()
+    print("Deleted book {} from database.".format(args.bookname))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("bookfolder", type=str,
