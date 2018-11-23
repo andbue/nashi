@@ -71,7 +71,11 @@ def bookdelete():
     parser = argparse.ArgumentParser()
     parser.add_argument("bookname", type=str, help="The name of the book.")
     args = parser.parse_args()
-    db_session.delete(Book.query.filter_by(name=args.bookname).one())
+    try:
+        db_session.delete(Book.query.filter_by(name=args.bookname).one())
+    except NoResultFound:
+        print("Book {} not in database!".format(args.bookname))
+        return
     db_session.commit()
     print("Deleted book {} from database.".format(args.bookname))
 
