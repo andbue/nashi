@@ -28,7 +28,7 @@ def mynavbar():
                  'uni-wuerzburg.de/forschung/forschungsstellephilosophie-un/'),
             Link('AL-Corpus', 'http://arabic-latin-corpus.philosophie.' +
                  'uni-wuerzburg.de/'),
-            Link('AL-Corpus wiki', 'http://kallimachos.de/al-corpus'),
+            Link('nashi on Github', 'https://github.com/andbue/nashi'),
         ),
         usergroup
     )

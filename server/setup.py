@@ -5,7 +5,7 @@ with open("../README.md") as f:
 
 setup(
     name='nashi',
-    version='0.0.26',
+    version='0.0.27',
     license='GPL_v3.0',
     author='Andreas Büttner',
     author_email='andreas.buettner@uni-wuerzburg.de',
@@ -33,7 +33,7 @@ setup(
         'redis',
         'lxml',
         'pillow',
-        'kraken',
+        'kraken<1.0.0',
         'scikit-image',
         'Flask'
     ],
