@@ -5,7 +5,7 @@ with open("../README.md") as f:
 
 setup(
     name='nashi',
-    version='0.0.27',
+    version='0.0.28',
     license='GPL_v3.0',
     author='Andreas Büttner',
     author_email='andreas.buettner@uni-wuerzburg.de',
@@ -19,6 +19,7 @@ setup(
     entry_points={
         'console_scripts': [
             'nashi-import=nashi.import_from_pagexml:main',
+            'nashi-export=nashi.import_from_pagexml:bookexport',
             'nashi-delete=nashi.import_from_pagexml:bookdelete'
         ],
     },
