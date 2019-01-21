@@ -204,6 +204,15 @@ def pagexmllineseg(xmlfile, imgpath, text_direction='horizontal-lr',
     im = Image.open(filename)
 
     for n, c in enumerate(sorted(coordmap)):
+        if type(scale) == dict:
+            if coordmap[c]['type'] in scale:
+                rscale = scale[coordmap[c]['type']]
+            elif "other" in scale:
+                rscale = scale["other"]
+            else:
+                rscale = None
+        else:
+            rscale = scale
         coords = coordmap[c]['coords']
         if len(coords) < 3:
             continue
@@ -220,7 +229,7 @@ def pagexmllineseg(xmlfile, imgpath, text_direction='horizontal-lr',
             else:
                 # if line in
                 lines = segment(cropped, text_direction=text_direction,
-                                scale=scale, maxcolseps=-1)
+                                scale=rscale, maxcolseps=-1)
 
                 lines = lines["lines"] if "lines" in lines else []
         else:
@@ -260,6 +269,7 @@ def create_book(bookpath):
 
 def add_page(book, xmlfile, commit=True, scale=None):
     """ Add page from PageXML file to book (segment lines, update version...).
+        scale may either be int, {"rtype": int, ... "other": int} or None
         TODO: add reading order
     """
     text_direction = 'horizontal-rl'\
