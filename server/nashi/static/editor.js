@@ -723,6 +723,17 @@ Nashi.prototype.toggleEditMode = function(){
 };
 
 
+Nashi.prototype.sanitizePoints = function(pointstring){
+	// for some reason, chrome writes points without "," to the points attribute
+	if (pointstring.includes(",")){
+		return pointstring;
+	} else {
+	return $.trim(pointstring.split(" ").map((x, n) => {switch(n%2){
+		case 1: return ","+x; case 0: return " "+x}}).join(""))
+	}
+}
+
+
 Nashi.prototype.saveEdits = function(){
   let pagename = this.pagedata.page,
       edited = new Set($.map(this.edits, function(e){return e["id"]}))
@@ -784,7 +795,7 @@ Nashi.prototype.pushEdit = function(type, lid, rid){
     case "create":
       this.pagedata.lines[lid] = {
     		comments: "",
-    		points: $("#"+lid, this.editor.svg0).attr("points"),
+    		points: this.sanitizePoints($("#"+lid, this.editor.svg0).attr("points")),
     		region: rid,
     		text: {content: "", status: "empty"}
     	};
@@ -796,7 +807,7 @@ Nashi.prototype.pushEdit = function(type, lid, rid){
     break;
 
     case "change":
-      this.pagedata.lines[lid]["points"] = $("#"+lid, this.editor.svg0).attr("points");
+      this.pagedata.lines[lid]["points"] = this.sanitizePoints($("#"+lid, this.editor.svg0).attr("points"));
       this.edits.push({
         "id": lid,
         "action": "change",
