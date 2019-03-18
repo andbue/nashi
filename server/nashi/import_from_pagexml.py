@@ -92,13 +92,13 @@ def bookexport():
                         "the book to export.")
     args = parser.parse_args()
     try:
-        book = Book.query.filter_by(name=bookname).one()
+        book = Book.query.filter_by(name=args.bookname).one()
     except NoResultFound:
         print("Book {} not in database!".format(args.bookname))
         return
     for page in book.pages:
         with open("{}/{}.xml".format(args.bookfolder, page.name), "w") as f:
-            f.write(p.data)
+            f.write(page.data)
     print("{} pages exported.".format(len(book.pages)))
 
 
