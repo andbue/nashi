@@ -1,11 +1,11 @@
 from setuptools import setup
 
-with open("../README.md") as f:
+with open("./README.md") as f:
     readme = f.read()
 
 setup(
     name='nashi_ocr',
-    version='0.0.2',
+    version='0.0.3',
     license='GPL_v3.0',
     author='Andreas Büttner',
     author_email='andreas.buettner@uni-wuerzburg.de',
