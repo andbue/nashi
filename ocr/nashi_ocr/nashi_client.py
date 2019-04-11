@@ -337,7 +337,8 @@ class NashiClient():
                         comments = l.attrib.get("comments")
                         if comments is not None and comments.strip():
                             cache[b][p][lid].attrs["comments"] = comments.strip()
-                        cache[b][p][lid].attrs["rtype"] = l.getparent().attrib["type"]
+                        rtype = l.getparent().attrib.get("type")
+                        cache[b][p][lid].attrs["rtype"] = rtype if rtype is not None else ""
 
                     ucd = l.xpath('./ns:TextEquiv[@index="{}"]/ns:Unicode'.format(gt_layer),
                                   namespaces=ns)

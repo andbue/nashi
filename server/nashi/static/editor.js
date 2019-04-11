@@ -352,7 +352,7 @@ Nashi.prototype.init = function(selector, settings=defaultSettings, page="_+firs
 };
 
 
-Nashi.prototype.onPageTurn = function(evt, pagenum){
+Nashi.prototype.onPageTurn = function(evt,  pagenum){
 	$(".pagenum").text(pagenum);
 	$(".linenum").text();
 	$("#sidebar li").each(function(n, li){
@@ -368,6 +368,11 @@ Nashi.prototype.onLineChange = function(evt, linenum){
 
 Nashi.prototype.downloadXML = function () {
     window.open(this.pagedata["page"] + '/data?download=xml');
+};
+
+
+Nashi.prototype.downloadIMAGE = function () {
+	window.open(this.pagedata.image.file);
 };
 
 
@@ -473,6 +478,7 @@ Nashi.prototype.sendLine = function(polygon){
 };
 
 Nashi.prototype.getData = function(filename, line=""){
+	if (this.mode == "editLines") this.toggleEditMode();
   this.editor.inputbox.toggle(false);
   $.ajax({
 		url: filename + "/data",
@@ -736,28 +742,48 @@ Nashi.prototype.sanitizePoints = function(pointstring){
 
 Nashi.prototype.saveEdits = function(){
   let pagename = this.pagedata.page,
-      edited = new Set($.map(this.edits, function(e){return e["id"]}))
-      edits = [];
+      edited = new Set($.map(this.edits, e => e["id"]))
+			edits = [];
+
   $("polygon", this.editor.svg0)
     .filter(function(n,e){return edited.has(e.id)})
-    .toggleClass("saving", true);
+		.toggleClass("saving", true);
+
   edited.forEach(function(id){
     this.edits.forEach(function(edit){
       if (edit.id == id){
-        let action = edit["action"];
-        let pos = -1;
-        $.each(edits, function(e){if (edits[e]["id"] == id){pos = e;}});
-        if (pos < 0 || edits[pos]["action"] != "change" || action == "create"){
-          pos = edits.length;
-        }
-        edits[pos] = {
-          action: action,
-          id: id,
-          input: edit.line
-        }
+				let action = edit["action"];
+				if (action == "delete"){
+					let shortlived = false;
+					for (let i = edits.length - 1; i >= 0; i--){
+						if (edits[i]["id"] == id && edits[i]["action"] == "create"){
+							edits = edits.slice(0,i);
+							shortlived = true;
+						}
+					}
+					if (!shortlived){
+						edits.push({
+							action: action,
+							id: id,
+							input: edit.line
+						})
+					};
+				} else {
+					let pos = -1;
+					$.each(edits, function(e){if (edits[e]["id"] == id){pos = e;}});
+					if (pos < 0 || edits[pos]["action"] != "change" || action == "create"){
+						pos = edits.length;
+					}
+					edits[pos] = {
+						action: action,
+						id: id,
+						input: edit.line
+					}
+				}
       }
     }, this);
-  }, this);
+	}, this);
+	
   let data = JSON.stringify({edits: edits});
   $.ajax({
     url: pagename + '/data',
@@ -926,9 +952,17 @@ Nashi.prototype.drawPolygon = function(evt){
 
 Nashi.prototype.finishPolygon = function(evt){
   this.editor.drawLine = null;
-  let lid = this.editor.currentLine[0].id;
-  this.pushEdit("create", lid, lid.split("_")[0]);
-  this.editLine(this.editor.currentLine[0]);
+	let lid = this.editor.currentLine[0].id;
+	if ($.unique($.map(nashi.editor.currentLine[0].points, x => x.x)).length < 2 
+		  || $.unique($.map(nashi.editor.currentLine[0].points, x => x.y)).length < 2){
+				// Line without extension, delete
+				$("#pointhandles", this.editor.svg0).remove();
+				this.editor.currentLine.remove();
+				this.editor.currentLine = null;
+		} else {
+			this.pushEdit("create", lid, lid.split("_")[0]);
+			this.editLine(this.editor.currentLine[0]);
+		}
 };
 
 
@@ -965,7 +999,6 @@ Nashi.prototype.createLine = function(evt){
 Nashi.prototype.createPoint = function(evt){
   let c = this.getImgPoint(evt);
   $(".lastmoved", this.editor.svg0).toggleClass("lastmoved", false);
-
   let polygon = this.editor.currentLine[0];
   let svgns = this.editor.svg0.attr("xmlns");
   let newelement = document.createElementNS(svgns, 'circle');
