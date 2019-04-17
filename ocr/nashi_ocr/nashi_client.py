@@ -17,7 +17,7 @@ from PIL import Image, ImageFile
 from getpass import getpass
 from skimage.draw import polygon
 
-from calamari_ocr.ocr import MultiPredictor, Trainer
+from calamari_ocr.ocr import MultiPredictor, Trainer, Predictor, Evaluator
 from calamari_ocr.ocr.data_processing import MultiDataProcessor, DataRangeNormalizer,\
     FinalPreparation, CenterNormalizer, NoopDataPreprocessor
 from calamari_ocr.ocr.datasets import DataSet, DataSetMode, DatasetGenerator
@@ -155,7 +155,8 @@ class Nash5DataSet(DataSet):
                     for s in cache[b][p]:
                         if self.mode == DataSetMode.TRAIN and "comments" in cache[b][p][s].attrs:
                             continue
-                        if mode == DataSetMode.TRAIN and cache[b][p][s].attrs.get("text") is not None:
+                        if mode in [DataSetMode.TRAIN, DataSetMode.EVAL]\
+                                and cache[b][p][s].attrs.get("text") is not None:
                             self.add_sample(cache[b][p][s])
                         elif mode == DataSetMode.PREDICT and cache[b][p][s].attrs.get("text") is None:
                             self.add_sample(cache[b][p][s])
@@ -423,6 +424,67 @@ class NashiClient():
 
         dset.store()
         print("All files written")
+
+        
+    def evaluate_books(self, books, models, mode="auto", sample=-1):
+        if type(books) == str:
+            books = [books]
+        if type(models) == str:
+            models = [models]
+        results = {}
+        if mode == "auto":
+            with h5py.File(self.cachefile, 'r', libver='latest', swmr=True) as cache:
+                for b in books:
+                    for p in cache[b]:
+                        for s in cache[b][p]:
+                            if "text" in cache[b][p][s].attrs:
+                                mode = "eval"
+                                break
+                        if mode != "auto":
+                            break
+                    if mode != "auto":
+                        break
+            if mode == "auto":
+                mode = "conf"
+
+        if mode == "conf":
+            dset = Nash5DataSet(DataSetMode.PREDICT, self.cachefile, books)
+        else:
+            dset = Nash5DataSet(DataSetMode.EVAL, self.cachefile, books)
+
+        if 0 < sample < len(dset):
+            delsamples = random.sample(dset._samples, len(dset) - sample)
+            for s in delsamples:
+                dset._samples.remove(s)
+
+        if mode == "conf":
+            for model in models:
+                if isinstance(model, str):
+                    model = [model]
+                predictor = MultiPredictor(checkpoints=model, data_preproc=NoopDataPreprocessor(), batch_size=1, processes=1)
+                voter_params = VoterParams()
+                voter_params.type = VoterParams.Type.Value("confidence_voter_default_ctc".upper())
+                voter = voter_from_proto(voter_params)
+                do_prediction = predictor.predict_dataset(dset, progress_bar=True)
+                avg_sentence_confidence = 0
+                n_predictions = 0
+                for result, sample in do_prediction:
+                    n_predictions += 1
+                    prediction = voter.vote_prediction_result(result)
+                    avg_sentence_confidence += prediction.avg_char_probability
+                results["/".join(model)] = avg_sentence_confidence / n_predictions
+
+        else:
+            for model in models:
+                if isinstance(model, str):
+                    model = [model]
+                predictor = MultiPredictor(checkpoint=model, data_preproc=NoopDataPreprocessor(), batch_size=1, processes=1, with_gt=True)
+                out_gen = predictor.predict_dataset(dset, progress_bar=True, apply_preproc=False)
+                result = Evaluator.evaluate_single_list(map(Evaluator.evaluate_single_args,
+                            map(lambda d: tuple([''.join(d[0].ground_truth), ''.join(d[0].chars)]), out_gen)))
+                results["/".join(model)] = 1 - result["avg_ler"]
+        return results
+            
 
 
     def upload_books(self, books, text_index=1):
