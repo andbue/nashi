@@ -68,7 +68,6 @@ def params_from_args(args):
     if args.seed > 0:
         params.model.network.backend.random_seed = args.seed
 
-
     if args.bidi_dir:
         # change bidirectional text direction if desired
         bidi_dir_to_enum = {"rtl": TextProcessorParams.BIDI_RTL, "ltr": TextProcessorParams.BIDI_LTR,
@@ -334,11 +333,12 @@ class NashiClient():
                                 cache[b][p][lid].resize(limg.shape)
                             cache[b][p][lid][:, :] = limg
                         cache[b][p][lid].attrs["coords"] = coords
-                        comments = l.attrib.get("comments")
-                        if comments is not None and comments.strip():
-                            cache[b][p][lid].attrs["comments"] = comments.strip()
-                        rtype = l.getparent().attrib.get("type")
-                        cache[b][p][lid].attrs["rtype"] = rtype if rtype is not None else ""
+                        
+                    comments = l.attrib.get("comments")
+                    if comments is not None and comments.strip():
+                        cache[b][p][lid].attrs["comments"] = comments.strip()
+                    rtype = l.getparent().attrib.get("type")
+                    cache[b][p][lid].attrs["rtype"] = rtype if rtype is not None else ""
 
                     ucd = l.xpath('./ns:TextEquiv[@index="{}"]/ns:Unicode'.format(gt_layer),
                                   namespaces=ns)
@@ -373,10 +373,9 @@ class NashiClient():
         parser = argparse.ArgumentParser()
         setup_train_args(parser, omit=["files", "validation"])
         args = parser.parse_known_args()[0]
-        cache = h5py.File(self.cachefile, 'r', libver='latest', swmr=True)
-        if all(cache[b].attrs.get("dir") == "rtl" for b in books):
-            args.bidi_dir = "rtl"
-        cache.close()
+        with h5py.File(self.cachefile, 'r', libver='latest', swmr=True) as cache:
+            if all(cache[b].attrs.get("dir") == "rtl" for b in books):
+                args.bidi_dir = "rtl"
         params = params_from_args(args)
         params.output_model_prefix = output_model_prefix
         params.early_stopping_best_model_prefix = "best_" + output_model_prefix
