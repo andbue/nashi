@@ -140,7 +140,7 @@ Nashi.prototype.shortcuts = {
 					case "KeyS":
 						if (evt.ctrlKey){
 							e.preventDefault();
-		        	downloadxml();
+							nsh.downloadXML();
 						}
 					break;
 
