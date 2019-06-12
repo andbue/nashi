@@ -20,7 +20,7 @@ from skimage.draw import polygon
 from calamari_ocr.ocr import MultiPredictor, Trainer, Predictor, Evaluator
 from calamari_ocr.ocr.data_processing import MultiDataProcessor, DataRangeNormalizer,\
     FinalPreparation, CenterNormalizer, NoopDataPreprocessor
-from calamari_ocr.ocr.datasets import DataSet, DataSetMode, DatasetGenerator
+from calamari_ocr.ocr.datasets import DataSet, DataSetMode, DatasetGenerator, RawDataSet
 from calamari_ocr.ocr.text_processing import default_text_normalizer_params,\
     default_text_regularizer_params, text_processor_from_proto, NoopTextProcessor
 from calamari_ocr.ocr.voting import voter_from_proto
@@ -115,10 +115,10 @@ def cutout(pageimg, coordstring, scale=1, rect=False):
     box[rr-offset[0], cc-offset[1]] = pageimg[rr, cc]
     return box
 
-
+            
 class Nash5DataSetGenerator(DatasetGenerator):
-    def __init__(self, output_queue, mode: DataSetMode, samples, text_only, epochs, cachefile):
-        super().__init__(output_queue, mode, samples, text_only, epochs)
+    def __init__(self, mp_context, output_queue, mode, samples, cachefile):
+        super().__init__(mp_context, output_queue, mode, samples)
         self.cachefile = cachefile
 
     def cacheopen(self):
@@ -173,10 +173,10 @@ class Nash5DataSet(DataSet):
             for p in self.predictions:
                 cache[p].attrs["pred"] = self.predictions[p]
 
-    def create_generator(self, output_queue, epochs, text_only):
-        return Nash5DataSetGenerator(output_queue, self.mode, self.samples(), text_only,
-                                     epochs, self.cachefile)
-
+    def create_generator(self, mp_context, output_queue):
+        return Nash5DataSetGenerator(mp_context, output_queue, self.mode, self.samples(), self.cachefile)
+    
+    
 
 class NashiClient():
     def __init__(self, baseurl, cachefile, login, password=None):
@@ -356,7 +356,7 @@ class NashiClient():
         cache.close()
 
 
-    def train_books(self, books, output_model_prefix, weights=None, train_to_val=1,
+    def train_books(self, books, output_model_prefix, weights=None, train_to_val=1, codec_whitelist=None,
                     max_iters=100000, display=500, checkpoint_frequency=-1, preload=False):
         if isinstance(books, str):
             books = [books]
@@ -385,9 +385,10 @@ class NashiClient():
         params.checkpoint_frequency = checkpoint_frequency
 
         trainer = Trainer(params, dset, txt_preproc=NoopTextProcessor(), data_preproc=NoopDataPreprocessor(),
-                  validation_dataset=vdset, weights=weights, preload_training=preload, preload_validation=True)
+                  validation_dataset=vdset, weights=weights, preload_training=preload, preload_validation=True,
+                  codec_whitelist=codec_whitelist)
 
-        trainer.train(progress_bar=True)
+        trainer.train(progress_bar=True, auto_compute_codec=True)
 
 
     def predict_books(self, books, models, pageupload=False, text_index=1):
@@ -426,7 +427,7 @@ class NashiClient():
         print("All files written")
 
         
-    def evaluate_books(self, books, models, mode="auto", sample=-1):
+    def evaluate_books(self, books, models, rtl=False, mode="auto", sample=-1):
         if type(books) == str:
             books = [books]
         if type(models) == str:
@@ -446,18 +447,20 @@ class NashiClient():
                         break
             if mode == "auto":
                 mode = "conf"
-
+                
         if mode == "conf":
             dset = Nash5DataSet(DataSetMode.PREDICT, self.cachefile, books)
         else:
-            dset = Nash5DataSet(DataSetMode.EVAL, self.cachefile, books)
-
+            dset = Nash5DataSet(DataSetMode.TRAIN, self.cachefile, books)
+            dset.mode = DataSetMode.PREDICT # otherwise results are randomised
+        
         if 0 < sample < len(dset):
             delsamples = random.sample(dset._samples, len(dset) - sample)
             for s in delsamples:
                 dset._samples.remove(s)
 
         if mode == "conf":
+            dset = dset.to_raw_input_dataset(processes=1, progress_bar=True)
             for model in models:
                 if isinstance(model, str):
                     model = [model]
@@ -472,17 +475,35 @@ class NashiClient():
                     n_predictions += 1
                     prediction = voter.vote_prediction_result(result)
                     avg_sentence_confidence += prediction.avg_char_probability
+                
                 results["/".join(model)] = avg_sentence_confidence / n_predictions
 
         else:
             for model in models:
                 if isinstance(model, str):
                     model = [model]
-                predictor = MultiPredictor(checkpoint=model, data_preproc=NoopDataPreprocessor(), batch_size=1, processes=1, with_gt=True)
-                out_gen = predictor.predict_dataset(dset, progress_bar=True, apply_preproc=False)
-                result = Evaluator.evaluate_single_list(map(Evaluator.evaluate_single_args,
-                            map(lambda d: tuple([''.join(d[0].ground_truth), ''.join(d[0].chars)]), out_gen)))
-                results["/".join(model)] = 1 - result["avg_ler"]
+                    
+                predictor = MultiPredictor(checkpoints=model, data_preproc=NoopDataPreprocessor(), 
+                                           batch_size=1, processes=1)
+
+                voter_params = VoterParams()
+                voter_params.type = VoterParams.Type.Value("confidence_voter_default_ctc".upper())
+                voter = voter_from_proto(voter_params)
+
+                out_gen = predictor.predict_dataset(dset, progress_bar=True)
+
+                preproc = self.bidi_preproc if rtl else self.txt_preproc
+                
+                pred_dset = RawDataSet(DataSetMode.EVAL, texts=preproc.apply([
+                    voter.vote_prediction_result(d[0]).sentence for d in out_gen
+                ]))
+
+
+                evaluator = Evaluator(text_preprocessor=NoopTextProcessor(), skip_empty_gt=False)
+                r = evaluator.run(gt_dataset=dset, pred_dataset=pred_dset, processes=1,
+                                  progress_bar=True)    
+                    
+                results["/".join(model)] = 1 - r["avg_ler"]
         return results
             
 
