@@ -391,7 +391,11 @@ class NashiClient():
         trainer.train(progress_bar=True, auto_compute_codec=True)
 
 
-    def predict_books(self, books, models, pageupload=False, text_index=1):
+    def predict_books(self, books, models, pageupload=True, text_index=1):
+        if pageupload == False:
+            print("""Warning: trying to save results to the hdf5-Cache may fail due to some issue
+                  with file access from multiple threads. It should work, however, if you set
+                  export HDF5_USE_FILE_LOCKING='FALSE'.""")
         if type(books) == str:
             books = [books]
         if type(models) == str:
@@ -423,8 +427,25 @@ class NashiClient():
             dset.store_text(sentence, sample, output_dir=None, extension=".pred.txt")
         print("Average sentence confidence: {:.2%}".format(avg_sentence_confidence / n_predictions))
 
-        dset.store()
-        print("All files written")
+        if pageupload:
+            ocrdata = {}
+            for lname, text in dset.predictions.items():
+                _, b, p, l = lname.split("/")
+                if b not in ocrdata:
+                    ocrdata[b] = {}
+                if p not in ocrdata[b]:
+                    ocrdata[b][p] = {}
+                ocrdata[b][p][l] = text
+
+            data = {"ocrdata": ocrdata, "index": text_index}
+            self.session.post(self.baseurl+"/_ocrdata",
+                              data=gzip.compress(json.dumps(data).encode("utf-8")),
+                              headers={"Content-Type": "application/json;charset=UTF-8",
+                                       "Content-Encoding": "gzip"})
+            print("Results uploaded")
+        else:
+            dset.store()
+            print("All files written")
 
         
     def evaluate_books(self, books, models, rtl=False, mode="auto", sample=-1):
