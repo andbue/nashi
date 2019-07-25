@@ -5,7 +5,7 @@ with open("./README.md") as f:
 
 setup(
     name='nashi_ocr',
-    version='0.0.8',
+    version='0.0.9',
     license='GPL_v3.0',
     author='Andreas Büttner',
     author_email='andreas.buettner@uni-wuerzburg.de',
@@ -19,8 +19,6 @@ setup(
     python_requires='>=3',
     install_requires=[
         "requests",
-        "zipfile",
-        "json",
         "h5py",
         "numpy", 
         "lxml",
