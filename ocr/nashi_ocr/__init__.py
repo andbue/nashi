@@ -1,2 +1,2 @@
-from nashi_client import NashiClient
+from nashi_ocr.nashi_client import NashiClient
 
