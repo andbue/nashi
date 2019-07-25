@@ -481,7 +481,7 @@ class NashiClient():
                 dset._samples.remove(s)
 
         if mode == "conf":
-            dset = dset.to_raw_input_dataset(processes=1, progress_bar=True)
+            #dset = dset.to_raw_input_dataset(processes=1, progress_bar=True)
             for model in models:
                 if isinstance(model, str):
                     model = [model]

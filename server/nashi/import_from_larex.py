@@ -18,11 +18,11 @@ from os import path
 from lxml import etree
 from PIL import Image, ImageDraw
 
-from kraken import pageseg, binarization
-from kraken.lib import morph, sl
-from kraken.lib.util import pil2array
-from kraken.binarization import is_bitonal
-from kraken.lib.exceptions import KrakenInputException
+from krakensegment import pageseg, binarization
+from krakensegment.lib import morph, sl
+from krakensegment.lib.util import pil2array
+from krakensegment.binarization import is_bitonal
+from krakensegment.lib.exceptions import KrakenInputException
 
 
 def cutout(im, coords):
