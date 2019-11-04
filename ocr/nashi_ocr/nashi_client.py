@@ -88,6 +88,7 @@ def params_from_args(args):
     params.model.network.backend.fuzzy_ctc_library_path = args.fuzzy_ctc_library_path
     params.model.network.backend.num_inter_threads = args.num_inter_threads
     params.model.network.backend.num_intra_threads = args.num_intra_threads
+    params.model.network.backend.shuffle_buffer_size = args.shuffle_buffer_size
     return params
 
 
