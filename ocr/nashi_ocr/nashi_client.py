@@ -82,10 +82,9 @@ def params_from_args(args):
         bidi_processor_params.bidi_direction = TextProcessorParams.BIDI_AUTO
 
     params.model.line_height = args.line_height
+
     network_params_from_definition_string(args.network, params.model.network)
-    params.model.network.clipping_mode = NetworkParams.ClippingMode.Value("CLIP_" + args.gradient_clipping_mode.upper())
-    params.model.network.clipping_constant = args.gradient_clipping_const
-    params.model.network.backend.fuzzy_ctc_library_path = args.fuzzy_ctc_library_path
+    params.model.network.clipping_norm = args.gradient_clipping_norm
     params.model.network.backend.num_inter_threads = args.num_inter_threads
     params.model.network.backend.num_intra_threads = args.num_intra_threads
     params.model.network.backend.shuffle_buffer_size = args.shuffle_buffer_size
