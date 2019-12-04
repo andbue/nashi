@@ -35,17 +35,23 @@ def params_from_args(args):
     Turn args to calamari into params
     """
     params = CheckpointParams()
-    for attr in ["max_iters", "stats_size", "batch_size", "checkpoint_frequency", "output_dir",
-                 "output_model_prefix", "display", "early_stopping_nbest",
-                 "early_stopping_best_model_prefix"]:
-        setattr(params, attr, getattr(args, attr))
-
-    params.processes = args.num_threads
+    params.max_iters = args.max_iters
+    params.stats_size = args.stats_size
+    params.batch_size = args.batch_size
+    params.checkpoint_frequency = args.checkpoint_frequency if args.checkpoint_frequency >= 0 else args.early_stopping_frequency
+    params.output_dir = args.output_dir
+    params.output_model_prefix = args.output_model_prefix
+    params.display = args.display
     params.skip_invalid_gt = not args.no_skip_invalid_gt
-    params.early_stopping_frequency = args.early_stopping_frequency\
-        if args.early_stopping_frequency >= 0 else args.checkpoint_frequency
-    params.early_stopping_best_model_output_dir = args.early_stopping_best_model_output_dir\
-        if args.early_stopping_best_model_output_dir else args.output_dir
+    params.processes = args.num_threads
+    params.data_aug_retrain_on_original = not args.only_train_on_augmented
+
+    params.early_stopping_at_acc = args.early_stopping_at_accuracy
+    params.early_stopping_frequency = args.early_stopping_frequency
+    params.early_stopping_nbest = args.early_stopping_nbest
+    params.early_stopping_best_model_prefix = args.early_stopping_best_model_prefix
+    params.early_stopping_best_model_output_dir = \
+        args.early_stopping_best_model_output_dir if args.early_stopping_best_model_output_dir else args.output_dir
 
     params.model.data_preprocessor.type = DataPreprocessorParams.DEFAULT_NORMALIZER
     params.model.data_preprocessor.line_height = args.line_height
