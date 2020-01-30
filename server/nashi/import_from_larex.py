@@ -141,6 +141,8 @@ def segment(im, text_direction='horizontal-lr', scale=None, maxcolseps=2,
 
     if not scale:
         scale = pageseg.estimate_scale(binary)
+        if np.isnan(scale):
+            scale = binary.shape[0]
 
     binary = pageseg.remove_hlines(binary, scale)
     # Taking this out as columns are separated by LAREX anyway
