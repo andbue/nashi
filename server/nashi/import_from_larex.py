@@ -134,6 +134,8 @@ def segment(im, text_direction='horizontal-lr', scale=None, maxcolseps=2,
     # tostring/fromstring magic in pil2array alters the array in a way that is
     # needed for the algorithm to work correctly.
     a = pil2array(im)
+    if len(a.shape) == 3:
+        a = a[:, :, 0]
     binary = np.array(a > 0.5*(np.amin(a) + np.amax(a)), 'i')
     binary = 1 - binary
 
@@ -141,15 +143,18 @@ def segment(im, text_direction='horizontal-lr', scale=None, maxcolseps=2,
         scale = pageseg.estimate_scale(binary)
 
     binary = pageseg.remove_hlines(binary, scale)
-    # emptyish images will cause exceptions here.
-    try:
-        if black_colseps:
-            colseps, binary = pageseg.compute_black_colseps(binary, scale,
-                                                            maxcolseps)
-        else:
-            colseps = pageseg.compute_white_colseps(binary, scale, maxcolseps)
-    except ValueError:
-        return {'text_direction': text_direction, 'boxes':  []}
+    # Taking this out as columns are separated by LAREX anyway
+    # # emptyish images will cause exceptions here.
+    # try:
+    #     if black_colseps:
+    #         colseps, binary = pageseg.compute_black_colseps(binary, scale,
+    #                                                         maxcolseps)
+    #     else:
+    #         colseps = pageseg.compute_white_colseps(binary, scale, maxcolseps)
+    # except ValueError:
+    #     return {'text_direction': text_direction, 'boxes':  []}
+
+    colseps = np.zeros(binary.shape, 'i')
 
     bottom, top, boxmap = pageseg.compute_gradmaps(binary, scale)
     seeds = pageseg.compute_line_seeds(binary, bottom, top, colseps, scale)
