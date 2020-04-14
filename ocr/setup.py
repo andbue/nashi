@@ -5,7 +5,7 @@ with open("./README.md") as f:
 
 setup(
     name='nashi_ocr',
-    version='0.1.4',
+    version='0.1.5',
     license='GPL_v3.0',
     author='Andreas Büttner',
     author_email='andreas.buettner@uni-wuerzburg.de',
@@ -22,6 +22,7 @@ setup(
         "h5py",
         "numpy", 
         "lxml",
+        'opencv-python',
         'pillow',
         'scikit-image',
         'calamari_ocr'

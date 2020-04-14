@@ -16,11 +16,15 @@ from os import path
 from PIL import Image, ImageFile
 from getpass import getpass
 from skimage.draw import polygon
+from glob import glob
 
+from cv2 import boxPoints, minAreaRect
+
+from calamari_ocr.ocr.augmentation.data_augmenter import SimpleDataAugmenter
 from calamari_ocr.ocr import MultiPredictor, Trainer, Predictor, Evaluator
 from calamari_ocr.ocr.data_processing import MultiDataProcessor, DataRangeNormalizer,\
     FinalPreparation, CenterNormalizer, NoopDataPreprocessor
-from calamari_ocr.ocr.datasets import DataSet, DataSetMode, DatasetGenerator, RawDataSet
+from calamari_ocr.ocr.datasets import DataSet, DataSetMode, DatasetGenerator, RawDataSet, FileDataSet
 from calamari_ocr.ocr.text_processing import default_text_normalizer_params,\
     default_text_regularizer_params, text_processor_from_proto, NoopTextProcessor
 from calamari_ocr.ocr.voting import voter_from_proto
@@ -29,6 +33,7 @@ from calamari_ocr.proto import DataPreprocessorParams, TextProcessorParams, Vote
 from calamari_ocr.scripts.train import setup_train_args
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True # Otherwise problems with larger images.
+
 
 def params_from_args(args):
     """
@@ -52,6 +57,7 @@ def params_from_args(args):
     params.early_stopping_best_model_prefix = args.early_stopping_best_model_prefix
     params.early_stopping_best_model_output_dir = \
         args.early_stopping_best_model_output_dir if args.early_stopping_best_model_output_dir else args.output_dir
+
 
     params.model.data_preprocessor.type = DataPreprocessorParams.DEFAULT_NORMALIZER
     params.model.data_preprocessor.line_height = args.line_height
@@ -94,10 +100,13 @@ def params_from_args(args):
     params.model.network.backend.num_inter_threads = args.num_inter_threads
     params.model.network.backend.num_intra_threads = args.num_intra_threads
     params.model.network.backend.shuffle_buffer_size = args.shuffle_buffer_size
+    
+    params.early_stopping_at_acc = args.early_stopping_at_accuracy
+        
     return params
 
 
-def cutout(pageimg, coordstring, scale=1, rect=False):
+def cutout(pageimg, coordstring, scale=1, rect=False, rrect=False):
     """ Cut region from image
     Parameters
     ----------
@@ -109,9 +118,13 @@ def cutout(pageimg, coordstring, scale=1, rect=False):
     coords = [p.split(",") for p in coordstring.split()]
     coords = np.array([(int(scale*int(c[1])), int(scale*int(c[0])))
                        for c in coords])
-    if rect:
+    if rect and not rrect:
         return pageimg[min(c[0] for c in coords):max(c[0] for c in coords),
                        min(c[1] for c in coords):max(c[1] for c in coords)]
+    if rrect:
+        cnt = np.array([[[c[0], c[1]]] for c in coords])
+        rect = boxPoints(minAreaRect(cnt))
+        coords = rect.astype(int)
     rr, cc = polygon(coords[:, 0], coords[:, 1], pageimg.shape)
     offset = (min([x[0] for x in coords]), min([x[1] for x in coords]))
     box = np.ones(
@@ -121,7 +134,7 @@ def cutout(pageimg, coordstring, scale=1, rect=False):
     box[rr-offset[0], cc-offset[1]] = pageimg[rr, cc]
     return box
 
-            
+
 class Nash5DataSetGenerator(DatasetGenerator):
     def __init__(self, mp_context, output_queue, mode, samples, cachefile):
         super().__init__(mp_context, output_queue, mode, samples)
@@ -131,14 +144,34 @@ class Nash5DataSetGenerator(DatasetGenerator):
         if isinstance(self.cachefile, str):
             self.cachefile = h5py.File(self.cachefile, "r", libver='latest', swmr=True)
         return self.cachefile
+    
+    def cacheclose(self):
+        if not isinstance(self.cachefile, str):
+            fn = self.cachefile.filename
+            self.cachefile.close()
+            self.cachefile = fn
 
     def _load_sample(self, sample, text_only=False):
-        s = self.cacheopen()[sample["id"]]
+        cache = self.cacheopen()
+        s = cache[sample["id"]]
+        text = s.attrs.get("text")
         if text_only:
-            yield None, s.attrs.get("text")
+            #self.cacheclose()
+            yield None, text
         else:
-            yield s[()], s.attrs.get("text")
+            im = np.empty(s.shape, s.dtype)
+            s.read_direct(im)
+            #self.cacheclose()
+            yield im, text
+            
+    def stop(self):
+        self.cacheclose()
+        if self.p:
+            self.p.terminate()
+            self.p = None
+            
 
+                        
 
 class Nash5DataSet(DataSet):
     def __init__(self, mode: DataSetMode, ncache, books):
@@ -174,7 +207,7 @@ class Nash5DataSet(DataSet):
         self.predictions[sample["id"]] = sentence
 
     def store(self):
-        with h5py.File(self.cachefile, "a", libver='latest') as cache:
+        with h5py.File(self.cachefile, "r+", libver='latest') as cache:
             cache.swmr_mode = True
             for p in self.predictions:
                 cache[p].attrs["pred"] = self.predictions[p]
@@ -263,11 +296,11 @@ class NashiClient():
         self.session = s
 
 
-    def update_books(self, books, gt_layer=0, rect=False, rtl=False):
+    def update_books(self, books, gt_layer=0, rect=False, rrect=False, rtl=False):
         """ Update books cache
         Parameters
         ----------
-        books : book title or list of titles
+        books : book title or list of titles or "title/pagenumber" for single specific page
         gt_layer : index of ground truth in PAGE files
         rect : cut out rectangles instead of line polygons
         rtl : set text direction to rtl
@@ -277,12 +310,17 @@ class NashiClient():
             books = [books]
         icnt, tcnt = 0, 0
         for b in books:
+            singlepage = None
+            if "/" in b:
+                b, singlepage = b.split("/")
             print("Updating {}…".format(b))
             if b.endswith("_ar") and not rtl:
                 print("Warning: Title ends with _ar but rtl is not set!")
-            if b.endswith("_ar") and not rect:
-                print("Warning: Title ends with _ar but rect is not set!")
+            if b.endswith("_ar") and not (rect or rrect):
+                print("Warning: Title ends with _ar but neither rect nor rrect is set!")
             book = self.getbook(b)
+            if singlepage is not None and singlepage not in book:
+                raise ValueError(f'Page "{singlepage}" not found!')
             # remove pages not contained in the nashi book
             if b in cache:
                 for p in cache.get(b):
@@ -291,6 +329,8 @@ class NashiClient():
             else:
                 cache.create_group(b)
             cache[b].attrs["dir"] = "rtl" if rtl else "ltr"
+            if singlepage is not None:
+                book = {singlepage: book[singlepage]}
             for p, root in book.items():
                 icnt_this, tcnt_this = 0, 0
                 print(p, end="… ")
@@ -329,7 +369,8 @@ class NashiClient():
                             if pageimg.dtype == bool:
                                 pageimg = pageimg.astype("uint8") * 255
                         limg = cutout(pageimg, coords,
-                                      scale=pageimg.shape[1] / cache[b][p].attrs["img_w"], rect=rect)
+                                      scale=pageimg.shape[1] / cache[b][p].attrs["img_w"],
+                                      rect=rect, rrect=rrect)
 
                         limg = self.data_proc.apply(limg)[0]
 
@@ -359,10 +400,12 @@ class NashiClient():
                 tcnt += tcnt_this
                 print("i: {} / t: {}".format(icnt_this, tcnt_this))
                 cache.flush()
+        cache.flush()
         cache.close()
-
+        
 
     def train_books(self, books, output_model_prefix, weights=None, train_to_val=1, codec_whitelist=None,
+                    codec_keep=False, n_augmentations=0.1,
                     max_iters=100000, display=500, checkpoint_frequency=-1, preload=False):
         if isinstance(books, str):
             books = [books]
@@ -390,9 +433,9 @@ class NashiClient():
         params.display = display
         params.checkpoint_frequency = checkpoint_frequency
 
-        trainer = Trainer(params, dset, txt_preproc=NoopTextProcessor(), data_preproc=NoopDataPreprocessor(),
+        trainer = Trainer(params, dset, txt_preproc=NoopTextProcessor(), data_preproc=NoopDataPreprocessor(), n_augmentations=n_augmentations, data_augmenter=SimpleDataAugmenter(),
                   validation_dataset=vdset, weights=weights, preload_training=preload, preload_validation=True,
-                  codec_whitelist=codec_whitelist)
+                  codec_whitelist=codec_whitelist, keep_loaded_codec=codec_keep)
 
         trainer.train(progress_bar=True, auto_compute_codec=True)
 
