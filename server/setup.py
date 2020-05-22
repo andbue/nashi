@@ -1,11 +1,11 @@
 from setuptools import setup
 
-with open("../README.md") as f:
+with open("./README.md") as f:
     readme = f.read()
 
 setup(
     name='nashi',
-    version='0.0.35',
+    version='0.0.36',
     license='GPL_v3.0',
     author='Andreas Büttner',
     author_email='andreas.buettner@uni-wuerzburg.de',
@@ -38,11 +38,11 @@ setup(
         'scikit-image',
         'Flask'
     ],
-    classifiers=(
+    classifiers=[
         'Programming Language :: Python :: 3',
         'Programming Language :: JavaScript',
         'Development Status :: 3 - Alpha',
         'Framework :: Flask',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-    ),
+    ],
 )

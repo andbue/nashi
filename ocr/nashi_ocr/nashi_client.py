@@ -8,6 +8,8 @@ import zipfile
 import json
 import gzip
 import random
+#from os import environ
+#environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 import h5py
 import numpy as np
 from lxml import etree, html
@@ -17,6 +19,9 @@ from PIL import Image, ImageFile
 from getpass import getpass
 from skimage.draw import polygon
 from glob import glob
+from multiprocessing import Pool
+from tqdm import tqdm
+
 
 from cv2 import boxPoints, minAreaRect
 
@@ -24,7 +29,7 @@ from calamari_ocr.ocr.augmentation.data_augmenter import SimpleDataAugmenter
 from calamari_ocr.ocr import MultiPredictor, Trainer, Predictor, Evaluator
 from calamari_ocr.ocr.data_processing import MultiDataProcessor, DataRangeNormalizer,\
     FinalPreparation, CenterNormalizer, NoopDataPreprocessor
-from calamari_ocr.ocr.datasets import DataSet, DataSetMode, DatasetGenerator, RawDataSet, FileDataSet
+from calamari_ocr.ocr.datasets import DataSet, DataSetMode, DatasetGenerator, RawDataSet
 from calamari_ocr.ocr.text_processing import default_text_normalizer_params,\
     default_text_regularizer_params, text_processor_from_proto, NoopTextProcessor
 from calamari_ocr.ocr.voting import voter_from_proto
@@ -34,6 +39,18 @@ from calamari_ocr.scripts.train import setup_train_args
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True # Otherwise problems with larger images.
 
+
+class PadNoopDataPreprocessor(NoopDataPreprocessor):
+    def __init__(self, pad=16, transpose=True):
+        super().__init__() 
+        self.pad = pad
+        self.transpose = transpose
+        
+    def local_to_global_pos(self, x, params):
+        if self.pad > 0 and self.transpose:
+            return x - self.pad
+        else:
+            return x
 
 def params_from_args(args):
     """
@@ -57,7 +74,6 @@ def params_from_args(args):
     params.early_stopping_best_model_prefix = args.early_stopping_best_model_prefix
     params.early_stopping_best_model_output_dir = \
         args.early_stopping_best_model_output_dir if args.early_stopping_best_model_output_dir else args.output_dir
-
 
     params.model.data_preprocessor.type = DataPreprocessorParams.DEFAULT_NORMALIZER
     params.model.data_preprocessor.line_height = args.line_height
@@ -135,6 +151,168 @@ def cutout(pageimg, coordstring, scale=1, rect=False, rrect=False):
     return box
 
 
+def cachewriter(cachefile, q, ready):
+    cache = h5py.File(cachefile, 'a', libver='latest')
+    cache.swmr_mode = True
+
+    ready.set()
+    for d in iter(q.get, 'STOP'):
+        a = d["action"]
+        if a == "mkgroup":
+            cache.create_group(d["id"])
+        if a == "rmgroup":
+            _ = cache.pop(d["id"])
+        if a == "attrset":
+            cache[d["id"]].attrs[d["key"]] = d["value"]
+        if a == "imgwrite":
+            pid, lid = d["id"].rsplit("/", 1)
+            limg = d["img"]
+            if lid not in cache[pid]:
+                cache[pid].create_dataset(lid, data=limg, maxshape=(None, 48))
+            else:
+                if cache[d["id"]].shape != limg.shape:
+                    cache[d["id"]].resize(limg.shape)
+                cache[d["id"]][:, :] = limg
+
+    cache.flush()
+    cache.close()
+    return
+
+
+class ImgProc(object):
+    def __init__(self, book, session, dataproc, rect, rrect):
+        self.book = book
+        self.s = session
+        self.dataproc = dataproc
+        self.rect = rect
+        self.rrect = rrect
+
+    def __call__(self, item):
+        b = self.book
+        pno, url, img_w, lines = item
+        res = []
+
+        imgresp = self.s.get(url, params={"upgrade": "nrm"})
+        f = BytesIO(imgresp.content)
+        im = Image.open(f)
+        pageimg = np.array(im)
+        f.close()
+        if len(pageimg.shape) > 2:
+            pageimg = pageimg[:, :, 0]
+        if pageimg.dtype == bool:
+            pageimg = pageimg.astype("uint8") * 255
+
+        for l in lines:
+            lid, coords = l
+            limg = cutout(pageimg, coords,
+                          scale=pageimg.shape[1] / img_w,
+                          rect=self.rect, rrect=self.rrect)
+            limg = self.dataproc.apply(limg)[0]
+            if len(limg.shape) != 2:
+                continue
+            res.append((lid, limg))
+        return pno, res
+
+
+class PageProcessor(object):
+    def __init__(self, queue, session, baseurl, cachefile, book, dataproc, textproc,
+                 gt_layer, rect, rrect, bnew):
+        self.q = queue
+        self.s = session
+        self.cachefile = cachefile
+        self.book = book
+        self.dataproc = dataproc
+        self.textproc = textproc
+        self.gt_layer = gt_layer
+        self.rect = rect
+        self.rrect = rrect
+        self.bnew = bnew
+        self.baseurl = baseurl
+
+
+    def __call__(self, item):
+        
+        b = self.book
+        bnew = self.bnew
+        q = self.q
+        p, xml = item
+        root = etree.fromstring(xml)
+        ns = {"ns": root.nsmap[None]}
+
+        cache = h5py.File(self.cachefile, 'r', libver='latest', swmr=True)
+        
+        pnew = False if not bnew else True
+        if bnew or p not in cache[b]:
+            pnew = True
+            q.put({"action": "mkgroup", "id": b+"/"+p})
+        
+        img_w = int(root.xpath('//ns:Page', namespaces=ns)[0].attrib["imageWidth"])
+        q.put({"action": "attrset", "id": b+"/"+p, "key": "img_w", "value": img_w})
+        img_file = root.xpath('//ns:Page', namespaces=ns)[0].attrib["imageFilename"]
+        q.put({"action": "attrset", "id": b+"/"+p, "key": "image_file", "value": img_file})
+        pageimg = None
+        lines = root.xpath('//ns:TextLine', namespaces=ns)
+        lids = [l.attrib["id"] for l in lines]
+
+        # remove lines not contained in the page anymore
+        if not pnew:
+            for lid in cache[b][p]:
+                if lid not in lids:
+                    print(f"Deleting line {lid} from page {p} in book {p}")
+                    q.put({"action": "rmgroup", "id": "/".join((b, p, lid))})
+
+        for l in lines:
+            coords = l.xpath('./ns:Coords', namespaces=ns).pop().attrib.get("points")
+            lid = l.attrib["id"]
+            # update line image if coords changed
+            if pnew or lid not in cache[b][p] \
+                    or cache[b][p][lid].attrs.get("coords") != coords:
+                if pageimg is None:
+                    imgresp = self.s.get(self.baseurl+"/books/{}/{}".format(
+                        b, img_file), params={"upgrade": "nrm"})
+                    f = BytesIO(imgresp.content)
+                    im = Image.open(f)
+                    pageimg = np.array(im)
+                    f.close()
+                    if len(pageimg.shape) > 2:
+                        pageimg = pageimg[:, :, 0]
+                    if pageimg.dtype == bool:
+                        pageimg = pageimg.astype("uint8") * 255
+
+                limg = cutout(pageimg, coords,
+                              scale=pageimg.shape[1] / img_w,
+                              rect=self.rect, rrect=self.rrect)
+
+                limg = self.dataproc.apply(limg)[0]
+
+                q.put({"action": "imgwrite", "id": "/".join((b,p,lid)), "img": limg})
+                q.put({"action": "attrset", "id": "/".join((b,p,lid)), "key": "coords",
+                       "value": coords})
+
+            comments = l.attrib.get("comments")
+            # CACHE WRITE
+            if comments is not None and comments.strip():
+                q.put({"action": "attrset", "id": "/".join((b,p,lid)), "key": "comments",
+                       "value": comments.strip()})
+            rtype = l.getparent().attrib.get("type")
+            rtype = rtype if rtype is not None else ""
+            # CACHE WRITE
+            q.put({"action": "attrset", "id": "/".join((b,p,lid)), "key": "rtype", "value": rtype})
+            ucd = l.xpath('./ns:TextEquiv[@index="{}"]/ns:Unicode'.format(self.gt_layer),
+                          namespaces=ns)
+            rawtext = ucd[0].text if ucd else ""
+            # CACHE READ
+            if pnew or lid not in cache[b][p] or rawtext != cache[b][p][lid].attrs.get("text_raw"):
+                # CACHE WRITE
+                q.put({"action": "attrset", "id": "/".join((b,p,lid)), "key": "text_raw",
+                       "value": rawtext})                    
+                proctext = self.textproc.apply(rawtext) if rawtext else ""
+                q.put({"action": "attrset", "id": "/".join((b,p,lid)), "key": "text",
+                       "value": proctext})
+        cache.close()
+
+
+
 class Nash5DataSetGenerator(DatasetGenerator):
     def __init__(self, mp_context, output_queue, mode, samples, cachefile):
         super().__init__(mp_context, output_queue, mode, samples)
@@ -195,9 +373,10 @@ class Nash5DataSet(DataSet):
                         if self.mode == DataSetMode.TRAIN and "comments" in cache[b][p][s].attrs:
                             continue
                         if mode in [DataSetMode.TRAIN, DataSetMode.EVAL]\
-                                and cache[b][p][s].attrs.get("text") is not None:
+                                and cache[b][p][s].attrs.get("text") is not None\
+                                and cache[b][p][s].attrs.get("text"):
                             self.add_sample(cache[b][p][s])
-                        elif mode == DataSetMode.PREDICT and cache[b][p][s].attrs.get("text") is None:
+                        elif mode == DataSetMode.PREDICT and cache[b][p][s].attrs.get("text") == "":
                             self.add_sample(cache[b][p][s])
 
     def add_sample(self, sample):
@@ -234,12 +413,16 @@ class NashiClient():
         self.valdata = None
         self.bookcache = {}
         self.cachefile = cachefile
+        if not path.isfile(cachefile):
+            cache = h5py.File(cachefile, "w", libver='latest', swmr=True)
+            cache.close()
+        
         self.login(login, password)
 
         params = DataPreprocessorParams()
         params.line_height = 48
         params.pad = 16
-        params.pad_value = 1
+        params.pad_value = 0
         params.no_invert = False
         params.no_transpose = False
         self.data_proc = MultiDataProcessor([
@@ -305,101 +488,112 @@ class NashiClient():
         rect : cut out rectangles instead of line polygons
         rtl : set text direction to rtl
         """
-        cache = self.cache = h5py.File(self.cachefile, 'a', libver='latest')
+
         if isinstance(books, str):
             books = [books]
-        icnt, tcnt = 0, 0
+        
+        cache = h5py.File(self.cachefile, 'a', libver='latest')
+        
+        pool = Pool()
+        
         for b in books:
             singlepage = None
             if "/" in b:
                 b, singlepage = b.split("/")
-            print("Updating {}…".format(b))
             if b.endswith("_ar") and not rtl:
                 print("Warning: Title ends with _ar but rtl is not set!")
             if b.endswith("_ar") and not (rect or rrect):
                 print("Warning: Title ends with _ar but neither rect nor rrect is set!")
-            book = self.getbook(b)
-            if singlepage is not None and singlepage not in book:
-                raise ValueError(f'Page "{singlepage}" not found!')
-            # remove pages not contained in the nashi book
-            if b in cache:
-                for p in cache.get(b):
-                    if p not in book:
-                        _ = cache[b].pop(p)
+            if singlepage is None:
+                bookiter, booklen = self.genbook(b)
             else:
+                book = self.getbook(b)
+                bookiter = self.getbook(b).items()
+                booklen = 1
+                if singlepage not in book:
+                    raise ValueError(f'Page "{singlepage}" not found!')
+            
+            pagelist = []
+                
+            if b not in cache:
                 cache.create_group(b)
+            
             cache[b].attrs["dir"] = "rtl" if rtl else "ltr"
-            if singlepage is not None:
-                book = {singlepage: book[singlepage]}
-            for p, root in book.items():
-                icnt_this, tcnt_this = 0, 0
-                print(p, end="… ")
-                ns = {"ns": root.nsmap[None]}
-                if p not in cache[b]:
-                    cache.create_group(b+"/"+p)
-                cache[b][p].attrs["img_w"] = int(root.xpath('//ns:Page',
-                                                            namespaces=ns)[0].attrib["imageWidth"])
-                cache[b][p].attrs["image_file"] = root.xpath('//ns:Page',
-                                                             namespaces=ns)[0].attrib["imageFilename"]
-                pageimg = None
-                lines = root.xpath('//ns:TextLine', namespaces=ns)
-                lids = [l.attrib["id"] for l in lines]
+            
+            def bookconv(book):
+                for pno, root in book:
+                    if singlepage is not None and pno != singlepage:
+                        continue
+                    if pno not in cache[b]:
+                        cache.create_group(b+"/"+pno)
+                    ns = f'{{{root.nsmap[None]}}}'
+                    xmlPage = root.find(f'./{ns}Page')
+                    
+                    imglist = []
+                    
+                    linelist = []
+                    img_w = int(xmlPage.attrib.get("imageWidth"))
+                    cache[b][pno].attrs["img_w"] = img_w
+                    image_file = xmlPage.attrib.get("imageFilename")
+                    cache[b][pno].attrs["image_file"] = image_file
+                    
+                    for l in root.iterfind(f'.//{ns}TextLine'):
+                        coords = l.find(f'./{ns}Coords').attrib.get("points")
+                        lid = l.attrib.get("id")
+                        linelist.append(lid)
+                        newl = False
+                        if lid not in cache[b][pno]:
+                            newl = True
+                            cache[b][pno].create_dataset(lid, (0, 48), maxshape=(None, 48),
+                                                         dtype="uint8", chunks=(256, 48))        
+                        if newl or cache[b][pno][lid].attrs.get("coords") != coords:
+                            cache[b][pno][lid].attrs["coords"] = coords
+                            imglist.append((lid, coords))
 
-                # remove lines not contained in the page anymore
-                for lid in cache[b][p]:
-                    if lid not in lids:
-                        _ = cache[b][p].pop(lid)
 
-                for l in lines:
-                    coords = l.xpath('./ns:Coords', namespaces=ns).pop().attrib.get("points")
-                    lid = l.attrib["id"]
-                    # update line image if coords changed
-                    if lid not in cache[b][p] \
-                            or cache[b][p][lid].attrs.get("coords") != coords:
-                        icnt_this += 1
-                        if pageimg is None:
-                            imgresp = self.session.get(self.baseurl+"/books/{}/{}".format(
-                                b, cache[b][p].attrs["image_file"]), params={"upgrade": "nrm"})
-                            f = BytesIO(imgresp.content)
-                            im = Image.open(f)
-                            pageimg = np.array(im)
-                            f.close()
-                            if len(pageimg.shape) > 2:
-                                pageimg = pageimg[:, :, 0]
-                            if pageimg.dtype == bool:
-                                pageimg = pageimg.astype("uint8") * 255
-                        limg = cutout(pageimg, coords,
-                                      scale=pageimg.shape[1] / cache[b][p].attrs["img_w"],
-                                      rect=rect, rrect=rrect)
+                        comments = l.attrib.get("comments")
+                        if comments is not None and comments.strip():     
+                            cache[b][pno][lid].attrs["comments"] = comments.strip()
+                        cache[b][pno][lid].attrs["rtype"] = l.getparent().attrib["type"]
 
-                        limg = self.data_proc.apply(limg)[0]
-
-                        if lid not in cache[b][p]:
-                            cache[b][p].create_dataset(lid, data=limg, maxshape=(None, 48))
-                        else:
-                            if cache[b][p][lid].shape != limg.shape:
-                                cache[b][p][lid].resize(limg.shape)
-                            cache[b][p][lid][:, :] = limg
-                        cache[b][p][lid].attrs["coords"] = coords
+                        rawtext = l.findtext(f'./{ns}TextEquiv[@index="{gt_layer}"]/{ns}Unicode', default="")
                         
-                    comments = l.attrib.get("comments")
-                    if comments is not None and comments.strip():
-                        cache[b][p][lid].attrs["comments"] = comments.strip()
-                    rtype = l.getparent().attrib.get("type")
-                    cache[b][p][lid].attrs["rtype"] = rtype if rtype is not None else ""
+                        if newl or rawtext != cache[b][pno][lid].attrs.get("text_raw"):
+                            cache[b][pno][lid].attrs["text_raw"] = rawtext
+                            preproc = self.bidi_preproc if rtl else self.txt_preproc
+                            cache[b][pno][lid].attrs["text"] = preproc.apply(rawtext)
 
-                    ucd = l.xpath('./ns:TextEquiv[@index="{}"]/ns:Unicode'.format(gt_layer),
-                                  namespaces=ns)
-                    rawtext = ucd[0].text if ucd else None
-                    if rawtext != cache[b][p][lid].attrs.get("text_raw"):
-                        tcnt_this += 1
-                        cache[b][p][lid].attrs["text_raw"] = rawtext
-                        preproc = self.bidi_preproc if rtl else self.txt_preproc
-                        cache[b][p][lid].attrs["text"] = preproc.apply(rawtext)
-                icnt += icnt_this
-                tcnt += tcnt_this
-                print("i: {} / t: {}".format(icnt_this, tcnt_this))
-                cache.flush()
+                    for lid in cache[b][pno]:
+                        if lid not in linelist:
+                            _ = cache[b][pno].pop(lid)
+                    
+                    url = f'{self.baseurl}/books/{b}/{image_file}'
+
+                    yield  pno, url, img_w, imglist
+            
+            r = pool.imap_unordered(ImgProc(b, self.session, self.data_proc, rect, rrect),
+                                    bookconv(bookiter))
+            
+            
+            for res in tqdm(r, total=booklen, desc=b.ljust(max(len(x) for x in books))):
+                pno, lines = res
+                pagelist.append(pno)
+                for lid, limg in lines:
+                    if cache[b][pno][lid].shape != limg.shape:
+                        cache[b][pno][lid].resize(limg.shape)
+                    cache[b][pno][lid].write_direct(limg)
+
+            
+            # remove pages not contained in the nashi book
+            for pno in cache[b]:
+                if pno not in pagelist:
+                    _ = cache[b].pop(pno)
+                    
+            cache.flush()
+        
+        
+        pool.close()
+        pool.join()
         cache.flush()
         cache.close()
         
@@ -456,7 +650,7 @@ class NashiClient():
         voter = voter_from_proto(voter_params)
 
         # predict for all models
-        predictor = MultiPredictor(checkpoints=models, data_preproc=NoopDataPreprocessor(), batch_size=1, processes=1)
+        predictor = MultiPredictor(checkpoints=models, data_preproc=PadNoopDataPreprocessor(), batch_size=1, processes=1)
         do_prediction = predictor.predict_dataset(dset, progress_bar=True)
 
         avg_sentence_confidence = 0
@@ -474,7 +668,8 @@ class NashiClient():
             avg_sentence_confidence += prediction.avg_char_probability
 
             dset.store_text(sentence, sample, output_dir=None, extension=".pred.txt")
-        print("Average sentence confidence: {:.2%}".format(avg_sentence_confidence / n_predictions))
+        avg_conf = avg_sentence_confidence / n_predictions if n_predictions else 0
+        print("Average sentence confidence: {:.2%}".format(avg_conf))
 
         if pageupload:
             ocrdata = {}
@@ -611,7 +806,7 @@ class NashiClient():
         cache.close()
 
 
-    def getbook(self, bookname):
+    def getbook(self, bookname, as_string=False):
         """ Download a book from the nashi server
         Parameters
         ----------
@@ -630,6 +825,34 @@ class NashiClient():
             filename = fn
             pagename = path.splitext(path.split(filename)[1])[0]
             with zf.open(fn) as fo:
-                book[pagename] = etree.parse(fo).getroot()
+                if not as_string:
+                    book[pagename] = etree.parse(fo).getroot()
+                else:
+                    book[pagename] = fo.read()
         f.close()
         return book
+    
+    
+    def genbook(self, bookname):
+        """ Download a book from the nashi server
+        Parameters
+        ----------
+        bookname : title of the book to load
+
+        Returns
+        ----------
+        (pagename, etree-root), number of pages
+        """
+        pagezip = self.session.get(self.baseurl+"/books/{}_PageXML.zip"
+                                   .format(bookname))
+        f = BytesIO(pagezip.content)
+        zf = zipfile.ZipFile(f)
+        book = {}
+        namelist = zf.namelist()
+        booklen = len(namelist)
+        def zf_to_etree(fn):
+            with zf.open(fn) as fo:
+                et = etree.parse(fo)
+            return et.getroot()
+        return (((path.splitext(path.split(fn)[1])[0]), zf_to_etree(fn))
+                for fn in namelist), booklen
