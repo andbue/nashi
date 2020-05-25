@@ -226,7 +226,7 @@ def pagexmllineseg(xmlfile, imgpath, text_direction='horizontal-lr',
         cropped = cutout(im, coords)
         offset = (min([x[0] for x in coords]), min([x[1] for x in coords]))
         if cropped is not None:
-            if not binarization.is_bitonal(cropped):
+            if not coordmap[c]["type"] == "drop-capital" and not binarization.is_bitonal(cropped):
                 try:
                     cropped = binarization.nlbin(cropped)
                 except SystemError:
