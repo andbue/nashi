@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+<div class="container" role="main">
+  {% block content %}
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for message in messages %}
+      <div class="alert alert-warning" role="alert">
+        {{ message }}
+      </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div id="editLayers" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title">Edit text layers</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="layerSelect">Select layer</label>
+            <select class="form-control layerSelect" id="layerSelect">
+            </select>
+          </div>
+          <div class="form-group">
+            <button id="btnCopy" type="button" class="btn btn-default" onclick="copyLayer()"><span class="glyphicon glyphicon-copy"> Copy to</button>
+            <label for="layerTarget">Target layer:</label>
+            <input id="layerTarget" type="number" value="100">
+          </div>
+          <div class="form-group">
+            <button id="btnDelete" type="button" class="btn btn-danger" onclick="deleteLayer()"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+            <label id="layerStatus"></label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="charTable" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title">List of characters in this book</h4>
+        </div>
+        <div class="modal-body">
+        </div>
+        <div class="modal-footer">
+          <div class="form-group">
+            <label for="charLayer">Select layer</label>
+            <select class="form-control layerSelect" id="charLayer">
+            </select>
+          </div>
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" onclick="loadCharTable()">Refresh</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="container" style="margin-top:15px;padding:20px;">
+    <h1>Search in {{ bookname }}:</h1>
+    <form id="textsearchform" action="{{ url_for('textsearch', bookname=bookname) }}" name="textsearch_form" class="form-inline" role="form">
+      <div class="form-group mb-2">
+        <label for="searchlayer">Layer to edit:</label>
+        <select class="form-control layerSelect" id="searchlayer">
+        </select>
+      </div>
+      <div class="form-group mb-2">
+        <label for="comparelayer">Layer to compare:</label>
+        <select class="form-control layerSelect" id="comparelayer">
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary"><span class="glyphicon glyphicon-search"></span> Search</button>
+      <button type="button" id="replaceBtn" class="btn" onclick="startReplace()" disabled>Replace</button>
+      <input type="text" name="context" id="context" size="5" class="form-control" placeholder="Context" title="Context for images in lines" style="font-family:Andron Scriptor Web;">
+
+    </form>
+    <div>
+      <span id="vkeyboard" style="font-family:Andron Scriptor Web; display: none;"></span>
+    </div>
+  </div>
+  <div class="container" id="searchresult" style="font-family:Andron Scriptor Web;"></div>
+
+
+</div>
+
+{% endblock %}
+{% block styles %}
+{{super()}}
+<style>
+label {min-width: 7em;}
+body {
+  margin-top: 50px;
+}
+span.comment.delete > .commentString {text-decoration: line-through;}
+.commentString {padding-left: 1px; padding-right: 1px;}
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{super()}}
+<script>
+
+// add edit menu
+$(".navbar-fixed-top ul.nav").prepend(`
+    <li class='dropdown pagenav'>
+        <a aria-expanded='false' aria-haspopup='true' class='dropdown-toggle' data-toggle='dropdown' href='#' role='button'>
+            Edit<span class='caret'></span>
+        </a>
+        <ul class='dropdown-menu'>
+            <li><a href='#' title='Edit text layers' onclick='editLayers()'>Text layers</a></li>
+            <li><a href='#' title='Show character table' onclick='charTable()'>Char table</a></li>
+        </ul>
+    </li>
+`);
+
+
+function loadLayers(){
+  $("#layerSelect").html("");
+  $.getJSON("{{ url_for('textlayers', bookname=bookname) }}", function(data){
+    data.layers.map(function(e){
+      $(".layerSelect").append("<option>"+e+"</option>")
+    });
+  });
+}
+
+function editLayers(){
+  $("#editLayers").modal();
+}
+
+
+function copyLayer(){
+  let target = $("#layerTarget")[0].value;
+  let layer = $("#layerSelect")[0].value;
+  if (target == layer){alert("Source and target are identical!"); return;}
+  $("#btnCopy").button("toggle");
+  let data = JSON.stringify({
+                action: "copy",
+                layer: $("#layerSelect")[0].value,
+                target: target
+            });
+  $("#layerStatus").text("Working...");
+  $.ajax({
+		url: "{{ url_for('textlayers', bookname=bookname) }}",
+		type: 'POST',
+		contentType: 'application/json;charset=UTF-8',
+		data: data,
+		success: function( data ) {
+      $("#btnCopy").button("toggle");
+      $(".layerSelect").append("<option>"+target+"</option>")
+      $("#layerStatus").text("");
+		}
+	});
+}
+
+
+function deleteLayer(){
+  $("#btnDelete").button("toggle");
+  let layer = $("#layerSelect")[0].value;
+  let data = JSON.stringify({
+                action: "delete",
+                layer: layer,
+            });
+  $("#layerStatus").text("Working...");
+  $.ajax({
+		url: "{{ url_for('textlayers', bookname=bookname) }}",
+		type: 'POST',
+		contentType: 'application/json;charset=UTF-8',
+		data: data,
+		success: function( data ) {
+      $("#btnDelete").button("toggle");
+      $(".layerSelect option").each(function(n, e){
+        if (layer == $(e).text()){$(e).remove();}
+      })
+      $("#layerStatus").text("");
+		}
+	});
+}
+
+function charTable(){
+  $("#charTable").modal();
+  if ($("#charTable .modal-body table").length == 0){loadCharTable();}
+}
+
+function loadCharTable(){
+  $("#charTable .modal-body").html("")
+  $.get("{{ url_for('chartable', bookname=bookname) }}",
+    {layer: $("#charLayer").val()},
+    function(data){
+      $("#charTable .modal-body").html(data)
+  });
+}
+
+function toggleimg(btn){
+  let row = btn.parentNode.parentNode;
+  let txt = $(row.children[3]);
+  let img = txt.find("img");
+  if (img.length){
+    img.remove();
+    txt.find("br").first().remove();
+  } else {
+    let page = row.children[1].textContent;
+    let line = row.children[2].textContent;
+    let url = page + "/" + line + ".png";
+    let context = $("#context").val();
+    if (context == ""){context = "0"};
+    let height = ((2*parseFloat(context)) + 1) * 16
+    $(row.children[3]).prepend(`<img src="${url}?context=${context}" height="${height}px"></img><br/>`)
+  }
+}
+
+function togglecomment(btn){
+  let row = btn.parentNode.parentNode;
+  let txt = $(row.children[3]);
+  let comment = txt.find(".comment");
+  if (comment.length){
+    $(comment).toggleClass("delete");
+  } else {
+    txt.prepend(`<span class='comment' style='background:yellow'>
+      <span class='glyphicon glyphicon-paperclip commentlabel'></span>
+      <span class='commentString' contenteditable='true'></span>
+    </span>
+    <br/>`);
+  }
+}
+
+
+function regescape(string){
+  return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
+function highlight(sterm){
+  if (sterm.length){
+    let regex = new RegExp(regescape(sterm), 'g');
+    let repl = `<span style='background:LightGreen'>${sterm}</span>`;
+    $(".foundString").each(function(n,e){$(e).html($(e).html().replace(regex, repl))})
+  }
+}
+
+
+function showReplace(searchterm, replaceterm){
+  $("#replaceBtn").toggleClass("btn-danger", true);
+  let regex = new RegExp(regescape(searchterm), 'g');
+  $(".foundString").each(function(n,e){
+    let repl = $(e).clone().toggleClass("foundString").toggleClass("replaceString").attr("contenteditable", "true");
+    repl.text(repl.text().replace(regex, replaceterm))
+    $(e).after("<br/>"+repl[0].outerHTML);
+  });
+}
+
+
+function startReplace(){
+  if (0 == $("#searchresult").children().length){
+    $("#textsearchform").submit();
+    return
+  } else if (0 == $(".replaceString").length){
+    let searchterm = $("#searchterm").val();
+    let replaceterm = $("#replaceterm").val();
+    if (replaceterm){
+      showReplace(searchterm, replaceterm);
+    }
+  } else {
+    let checked = $("#searchresult .form-check-input:checked");
+    let layer = $("#searchlayer").val();
+    let rs = checked.map((n, e)=>{
+      let p = $(e).parent().nextAll(".pinfo").text();
+      let l = $(e).parent().nextAll(".linfo").text();
+      let t = $(e).parent().nextAll(".text").children(".replaceString").text();
+      let c = "";
+      let com = $(e).parent().nextAll(".text").children(".comment:not(.delete)");
+      if (com.length){
+        c = $("<div>"+com.first().children(".commentString").html().replace("<br>", "\n")+"</div>")
+                      .text().replace("\n", "<br>")
+      }
+      return {"page": p, "line": l, "text": t, "comment": c};
+    }).toArray();
+    $("#searchresult").text("Replacing...");
+    $.ajax({
+      type: "POST",
+      url: "{{ url_for('textreplace', bookname=bookname) }}",
+      contentType: 'application/json;charset=UTF-8',
+      data: JSON.stringify({
+        replacements: rs,
+        layer: layer
+      }),
+      success : function(data){
+        $("#searchresult").text(data);
+      }
+    });
+  }
+}
+
+
+$(function(){
+  loadLayers();
+});
+
+
+var defaultSettings = {
+	vKeyboard: {
+  "a": ["ä", "ā", "æ", "aͩ", "aͦ", "ȧ", "ª"],
+  "b": ["b᷎",	"b", "ƀ", "b̄", "b̅"],
+  "c": ["ç", "c̄", "cͣ", "⁋", "¶", "ꝯ", "ͨ"],
+  "d": ["d᷎", "", "dͭ", "đ"],
+  "e": ["ē", "ę", "eͥ", "ꝫ"],
+  "g": ["ḡ", "g̊", "gͥ"],
+  "h": ["h̊", "h̄", "ḣ", "h̃"],
+  "i": ["ī", "iͥ", "ͥ"],
+  "l": ["ł", "ꝉ"],
+  "m": ["", "º"],
+  "n": [""],
+  "o": ["ō", "œ", "º", "ͦ"],
+  "p": ["", "p̃",	"ꝑ", "ꝑᷓ", "ꝓ", "ꝑͣ"],
+  "q": ["qᷓ", "q̄", "qͥ", "ꝗ", "ꝗᷓ", "qͦ",	"q̈", "ꝙ", "ꝙᷓ", ""],
+  "r": ["r̄", "℞", "ꝛ", "ꝝ"],
+  "s": ["ẜ"],
+  "t": ["t"],
+  "u": ["ū", "ꝰ"],
+  "v": ["ꝟ", "v᷎", "v"],
+  "w": ["wͭ"],
+  "x": ["x̄"],
+  "y": [""],
+  "1": ["¹"],
+  "2": ["²"],
+  "3": ["³", "ʒ", "℥"],
+  "4": ["⁴"],
+  "5": ["⁵"],
+  "6": ["⁶"],
+  "7": ["⁷"],
+  "8": ["⁸"],
+  "9": ["⁹"],
+  "0": ["⁰"],
+  "-": ["̄", "̃", "ᷓ", "͛"],
+  ",": ["̕", "̀"]
+  },
+	fontSize: $("body").css("fontSize").split("px",1).pop(),
+	fontScale: {
+		ltr: 0.8,
+		rtl: 0.6
+	},
+  handleRadius: 0.3,
+  colours: [
+    ["polygon.empty", "fill", "Salmon"],
+    ["polygon.empty", "opacity", "0.2"],
+    ["polygon.ocr", "fill", "Blue"],
+    ["polygon.ocr", "opacity", "0.2"],
+    ["polygon.gt", "fill", "Green"],
+    ["polygon.ocr", "opacity", "0.2"],
+    ["polygon.comment", "fill-opacity", "0.2"],
+    ["polygon.comment", "opacity", "0.6"],
+    ["polygon.comment", "stroke", "Red"],
+    ["polygon.comment", "stroke-width", "2px"],
+    ["polygon.edit", "fill", "Orange"],
+    ["polygon.edit", "fill-opacity", "0.4"],
+    ["polygon.edit", "opacity", "0.4"],
+  ]
+};
+
+
+$.getJSON('{{url_for("editorsettings")}}', function(data){
+  settings = {};
+  if (data.status == "success"){
+    settings = data.settings;
+  } else {
+    settings = defaultSettings;
+  }
+
+})
+
+$("#textsearchform #searchterm, #replaceterm").on("keyup", function(e){
+  evt = e.originalEvent;
+
+  if (evt.code == "Insert" && $("#vkeyboard").is(":visible")){
+    $("#vkeyboard").toggle(false);
+  }
+});
+
+
+$("#textsearchform #searchterm, #replaceterm").on("keydown", function(e){
+  evt = e.originalEvent;
+  if (evt.code == "Insert"){
+    if (evt.shiftKey){
+      evt.preventDefault();
+      let pos = evt.target.selectionStart;
+      let text = evt.target.value;
+      if (pos < 0) pos = 0;
+
+      let char = text.charAt(pos-1);
+      console.log(char);
+      if (char in settings.vKeyboard){
+          let alt = settings.vKeyboard[char]
+          let displaykeys = "";
+          for (let i=0; i<alt.length; i++){ //"¹²³⁴⁵⁶⁷⁸⁹⁰"
+              displaykeys += "<span class='key'>"+"①②③④⑤⑥⑦⑧⑨⓪"[i]
+                              + "</span><span>&nbsp;"+alt[i]+"</span> ";
+          }
+
+          $("#vkeyboard").html(displaykeys);
+          $("#vkeyboard").toggle(true);
+      }
+    }
+  }
+  if (evt.code.startsWith("Digit") && $("#vkeyboard").is(":visible")){
+    evt.preventDefault();
+    let pos = evt.target.selectionStart;
+    let text = evt.target.value;
+    if (pos < 0) pos = 0;
+    let char = text.charAt(pos-1);
+    if (char in settings.vKeyboard){
+      let nmb = parseInt(evt.code[5]);
+      if (nmb == 0){ nmb = 10; }
+      if (nmb > settings.vKeyboard[char].length){ nmb = 1; }
+      let insert = settings.vKeyboard[char][nmb-1];
+      let newtext = text.slice(0, pos-1) + insert + text.slice(pos);
+      evt.target.value = newtext;
+      evt.target.setSelectionRange(pos,pos);
+    }
+  }
+});
+
+$("#textsearchform #replaceterm").on("input", function(e){
+  $(".replaceString").remove();
+  $("#replaceBtn").toggleClass("btn-danger", false);
+});
+
+function searchComments(filter=""){
+  $("#replaceBtn").toggleClass("btn-danger", false);
+  $("#searchresult").html("Searching commented lines...");
+  $.ajax({
+    type: "POST",
+    url: "{{ url_for('textsearch', bookname=bookname) }}",
+    contentType: 'application/json;charset=UTF-8',
+    data: JSON.stringify({
+      commented: true,
+      filter: filter,
+      layer: $("#searchlayer").val()
+    }),
+    success : function(data){
+      $("#searchresult").html(data);
+    }
+  });
+}
+
+$("#textsearchform").submit(function(event){
+    // cancels the form submission
+    event.preventDefault();
+    $("#searchresult").html("Searching...");
+    $("#replaceBtn").toggleClass("btn-danger", false);
+    var layer = $("#searchlayer").val()
+    var layercomp = $("#comparelayer").val()
+    $.ajax({
+      type: "POST",
+      url: "{{ url_for('textcompare', bookname=bookname) }}",
+      contentType: 'application/json;charset=UTF-8',
+      data: JSON.stringify({
+        layer: layer,
+        complayer: layercomp,
+      }),
+      success : function(data){
+        $("#searchresult").html(data);
+        $("#replaceBtn").prop("disabled", false)
+        //let replterm = $("#replaceterm").val();
+        //if (replterm){
+        //  showReplace(searchterm, replterm);
+       // }
+        //highlight(searchterm);
+      }
+    });
+});
+</script>
+
+{% endblock %}

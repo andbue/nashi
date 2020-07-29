@@ -4,6 +4,7 @@ from flask_security import login_required
 from flask_security.core import current_user
 import requests
 import gzip
+from difflib import SequenceMatcher
 
 import zipfile
 import unicodedata
@@ -425,6 +426,62 @@ def getlineimage(bookname, pageno, lineid):
                     coords, imgshape, context=context, rcoords=coords_region)
     return Response(im, mimetype="image/png")
 
+@app.route('/books/<bookname>/textcheck.html')
+@login_required
+def textcheck(bookname):
+    return render_template("textcheck.html", bookname=bookname)
+
+@app.route('/books/<bookname>/_textcompare.html', methods=['POST'])
+@login_required
+def textcompare(bookname):
+    def htmlstyle(string, color):
+        return '<span style="background-color: {};">{}</span>'.format(color, string)
+    def diff_strings_html(a, b):
+        output = []
+        matcher = SequenceMatcher(None, a, b)
+        for opcode, a0, a1, b0, b1 in matcher.get_opcodes():
+            if opcode == "equal":
+                output.append(a[a0:a1])
+            elif opcode == "insert":
+                output.append(htmlstyle(b[b0:b1], "green"))
+            elif opcode == "delete":
+                output.append(htmlstyle(a[a0:a1], "red"))
+            elif opcode == "replace":
+                output.append(htmlstyle(b[b0:b1], "lightblue"))
+                output.append(htmlstyle(a[a0:a1], "yellow"))
+        return "".join(output)
+    data = request.get_json()
+    l1 = data["layer"]
+    l2 = data["complayer"]
+    book = Book.query.filter_by(name=bookname).one()
+    pairs = []
+    for p in book.pages:
+        root = etree.fromstring(p.data)
+        ns = {"ns": root.nsmap[None]}
+        n = root.nsmap[None]
+        tlines = root.findall('.//{{{}}}TextLine'.format(n))
+        for l in tlines:
+            te1 = l.find('./{{{}}}TextEquiv[@index="{}"]'.format(n, l1))
+            te2 = l.find('./{{{}}}TextEquiv[@index="{}"]'.format(n, l2))
+            if te1 != None and te2 != None:
+                u1 = te1.find('./{{{}}}Unicode'.format(n))
+                u2 = te2.find('./{{{}}}Unicode'.format(n))
+                if u1 != None and u2 != None:
+                    t1 = u1.text
+                    t2 = u2.text
+                    if t1 != None and t2 != None and t1.strip() and t2.strip() and t1 != t2:
+                        t2 = diff_strings_html(t1, t2)
+                        if "comments" in l.attrib:
+                            comment = l.attrib["comments"]
+                        else:
+                            comment = ""
+                        pairs.append([p.name, l.attrib["id"], t1, t2, comment])
+        if len(pairs) > 10000:
+            return render_template("_compareresults.html", results=pairs,
+                                    cnt="{} (there could be more,"
+                                    .format(len(pairs))+"max. exceeded)")
+    return render_template("_compareresults.html", results=pairs,
+                            cnt=len(pairs))
 
 @app.route('/books/<bookname>_PageXML.zip')
 @login_required

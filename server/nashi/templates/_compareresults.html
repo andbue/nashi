@@ -1,0 +1,41 @@
+{{ cnt }} lines found.
+Select
+<a href="#" onclick="$('#searchresult .form-check-input').prop('checked', false); return false;">NONE</a>,
+<a href="#" onclick="$('#searchresult .form-check-input').prop('checked', true); return false;">ALL</a>,
+<a href="#" onclick="$('#searchresult .form-check-input').prop('checked', false).slice(0,20).prop('checked', true); return false;">first 20</a>,
+<a href="#" onclick="$('#searchresult .form-check-input').prop('checked', false).slice(0,50).prop('checked', true); return false;">first 50</a>,
+<a href="#" onclick="$('#searchresult .form-check-input').prop('checked', false).slice(0,100).prop('checked', true); return false;">first 100</a>.
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Repl.</th>
+        <th>Page</th>
+        <th>Line</th>
+        <th>Text</th>
+        <th>Toggle</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in results|sort %}
+      <tr>
+        <td class="col-md-1"><input class="form-check-input" type="checkbox"></td>
+        <td class="pinfo col-md-1">{{ r[0] }}</td>
+        <td class="linfo col-md-1">{{ r[1] }}</td>
+
+        <td class="text">
+          {% if r[4] %}
+          <span class="comment" style="background:{% if r[4].startswith('#F') %}lightgreen{% elif r[4].startswith('#S') %}lightcoral{% else %}yellow{% endif %}">
+            <span class="glyphicon glyphicon-paperclip commentlabel"></span>
+            <span class="commentString" contenteditable="true">{{r[4]|safe}}</span>
+          </span>
+          <br/>
+          {% endif %}
+          <span class="foundString">{{ r[3]|safe}}</span><br>
+          <span class="replaceString" contenteditable="true">{{ r[2] }}</span></td>
+        <td class="col-md-1"><button class="btn" onclick="togglecomment(this)"><span class="glyphicon glyphicon-paperclip commentlabel"></span></button><button class="btn" onclick="toggleimg(this)"><span class="glyphicon glyphicon-picture"></span></button></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  </div>

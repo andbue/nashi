@@ -5,7 +5,7 @@ with open("./README.md") as f:
 
 setup(
     name='nashi',
-    version='0.0.37',
+    version='0.0.38',
     license='GPL_v3.0',
     author='Andreas Büttner',
     author_email='andreas.buettner@uni-wuerzburg.de',

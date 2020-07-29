@@ -352,7 +352,7 @@ class Nash5DataSetGenerator(DatasetGenerator):
                         
 
 class Nash5DataSet(DataSet):
-    def __init__(self, mode: DataSetMode, ncache, books):
+    def __init__(self, mode: DataSetMode, ncache, books, pred_all=False):
         """ Create a dataset from nashi cache
         Parameters
         ----------
@@ -376,7 +376,8 @@ class Nash5DataSet(DataSet):
                                 and cache[b][p][s].attrs.get("text") is not None\
                                 and cache[b][p][s].attrs.get("text"):
                             self.add_sample(cache[b][p][s])
-                        elif mode == DataSetMode.PREDICT and cache[b][p][s].attrs.get("text") == "":
+                        elif mode == DataSetMode.PREDICT:
+                            if pred_all or cache[b][p][s].attrs.get("text") == "":
                             self.add_sample(cache[b][p][s])
 
     def add_sample(self, sample):
@@ -634,7 +635,7 @@ class NashiClient():
         trainer.train(progress_bar=True, auto_compute_codec=True)
 
 
-    def predict_books(self, books, models, pageupload=True, text_index=1):
+    def predict_books(self, books, models, pageupload=True, text_index=1, pred_all=False):
         if pageupload == False:
             print("""Warning: trying to save results to the hdf5-Cache may fail due to some issue
                   with file access from multiple threads. It should work, however, if you set
@@ -643,7 +644,7 @@ class NashiClient():
             books = [books]
         if type(models) == str:
             models = [models]
-        dset = Nash5DataSet(DataSetMode.PREDICT, self.cachefile, books)
+        dset = Nash5DataSet(DataSetMode.PREDICT, self.cachefile, books, pred_all=pred_all)
 
         voter_params = VoterParams()
         voter_params.type = VoterParams.Type.Value("confidence_voter_default_ctc".upper())
