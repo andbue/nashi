@@ -378,7 +378,7 @@ class Nash5DataSet(DataSet):
                             self.add_sample(cache[b][p][s])
                         elif mode == DataSetMode.PREDICT:
                             if pred_all or cache[b][p][s].attrs.get("text") == "":
-                            self.add_sample(cache[b][p][s])
+                                self.add_sample(cache[b][p][s])
 
     def add_sample(self, sample):
         self._samples.append({"id": sample.name})
