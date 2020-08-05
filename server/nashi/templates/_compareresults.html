@@ -22,9 +22,9 @@ Select
         <td class="pinfo col-md-1">{{ r[0] }}</td>
         <td class="linfo col-md-1">{{ r[1] }}</td>
 
-        <td class="text">
+        <td class="text"{% if dir=='rtl'%}style="direction: rtl;"{% endif %}>
           {% if r[4] %}
-          <span class="comment" style="background:{% if r[4].startswith('#F') %}lightgreen{% elif r[4].startswith('#S') %}lightcoral{% else %}yellow{% endif %}">
+          <span class="comment" style="{% if dir=='rtl'%}direction: ltr; {% endif %}background:{% if r[4].startswith('#F') %}lightgreen{% elif r[4].startswith('#S') %}lightcoral{% else %}yellow{% endif %}">
             <span class="glyphicon glyphicon-paperclip commentlabel"></span>
             <span class="commentString" contenteditable="true">{{r[4]|safe}}</span>
           </span>

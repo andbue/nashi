@@ -450,6 +450,7 @@ def textcompare(bookname):
                 output.append(htmlstyle(b[b0:b1], "lightblue"))
                 output.append(htmlstyle(a[a0:a1], "yellow"))
         return "".join(output)
+    direction = "rtl" if bookname.endswith("_ar") else "ltr"
     data = request.get_json()
     l1 = data["layer"]
     l2 = data["complayer"]
@@ -481,7 +482,7 @@ def textcompare(bookname):
                                     cnt="{} (there could be more,"
                                     .format(len(pairs))+"max. exceeded)")
     return render_template("_compareresults.html", results=pairs,
-                            cnt=len(pairs))
+                            cnt=len(pairs), dir=direction)
 
 @app.route('/books/<bookname>_PageXML.zip')
 @login_required
