@@ -225,6 +225,11 @@ function toggleimg(btn){
     if (context == ""){context = "0"};
     let height = ((2*parseFloat(context)) + 1) * 16
     $(row.children[3]).prepend(`<img src="${url}?context=${context}" height="${height}px"></img><br/>`)
+    let img = row.querySelector("img");
+    img.onwheel = (e => {
+      e.preventDefault();
+      img.height += (e.deltaY < 0) ? -2 : 2;
+    })
   }
 }
 
