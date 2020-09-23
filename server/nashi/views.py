@@ -447,8 +447,8 @@ def textcompare(bookname):
             elif opcode == "delete":
                 output.append(htmlstyle(a[a0:a1], "red"))
             elif opcode == "replace":
-                output.append(htmlstyle(b[b0:b1], "lightblue"))
-                output.append(htmlstyle(a[a0:a1], "yellow"))
+                output.append(htmlstyle(b[b0:b1], "orange"))
+                #output.append(htmlstyle(a[a0:a1], "yellow"))
         return "".join(output)
     direction = "rtl" if bookname.endswith("_ar") else "ltr"
     data = request.get_json()
