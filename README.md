@@ -16,6 +16,7 @@ But wait, there's more: download now and get a complete webapp written in Python
 - Shift+ArrowDown opens a new comment field (Shift+ArrowUp switches back to the transcription line).
 ### Global keyboard shortcuts
 - Ctrl+Space Zooms in to line width
+- Ctrl+Shift+Space toggles zoom mode (always zoom in to line width)
 - Shift+PageUp/PageDown loads the next/previous page if the filenames of your PageXML files contain the number.
 - Ctrl+Shift+ArrowLeft/ArrowRight changes orientation and input direction to ltr/rtl.
 - Ctrl+S downloads the PageXML file.
