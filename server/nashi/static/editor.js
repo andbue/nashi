@@ -61,6 +61,7 @@ let defaultSettings = {
 		rtl: 0.6
 	},
   handleRadius: 0.3,
+  editorWidth: 1200,
   colours: [
     ["polygon.empty", "fill", "Salmon"],
     ["polygon.empty", "opacity", "0.2"],
@@ -106,6 +107,9 @@ Nashi.prototype.shortcuts = {
 					case "Space":
 						if (evt.ctrlKey && evt.shiftKey){
 							evt.preventDefault();
+							if (nsh.editor.currentLine.length){
+								nsh.zoom();
+							}
 							nsh.editor.zoom = !nsh.editor.zoom;
 						} else if (evt.ctrlKey && nsh.editor.currentLine.length){
 							evt.preventDefault();
@@ -320,6 +324,8 @@ Nashi.prototype.init = function(selector, settings=defaultSettings, page="_+firs
 		svg1: $("#svg1", selector),
 		svg2: $("#svg2", selector)
 	};
+
+  this.editor.editor[0].style.width = settings.editorWidth + "px";
 
   [this.editor.svg1, this.editor.svg2].forEach(function(svg){
 		svg.setViewbox = function(x, y, width, height){

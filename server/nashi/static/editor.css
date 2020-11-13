@@ -68,7 +68,7 @@ line.linehandle:hover {cursor:copy;}
 
 body {
   background:WhiteSmoke;
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 
 

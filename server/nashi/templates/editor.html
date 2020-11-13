@@ -316,6 +316,7 @@
       otherTable.append(`<tr><th>Font size</th><td contenteditable="true" data-id="fontSize">${nashi.settings.fontSize}</td></tr>`);
       otherTable.append(`<tr><th>Font scale ltr</th><td contenteditable="true" data-id="fontScale_ltr">${nashi.settings.fontScale.ltr}</td></tr>`);
       otherTable.append(`<tr><th>Font scale rtl</th><td contenteditable="true" data-id="fontScale_rtl">${nashi.settings.fontScale.rtl}</td></tr>`);
+      otherTable.append(`<tr><th>Editor width</th><td contenteditable="true" data-id="editorWidth">${nashi.settings.editorWidth}</td></tr>`);
       otherTable.append(`<tr><th>Handle radius</th><td contenteditable="true" data-id="handleRadius">${nashi.settings.handleRadius}</td></tr>`);
 
     }
@@ -370,6 +371,7 @@
         rtl: parseFloat($("#settingsOther td[data-id='fontScale_rtl']").text())
       };
       settings.handleRadius = parseFloat($("#settingsOther td[data-id='handleRadius']").text());
+      settings.editorWidth = parseInt($("#settingsOther td[data-id='editorWidth']").text());
 
       data = JSON.stringify(settings);
       $.ajax({
