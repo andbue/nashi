@@ -11,6 +11,7 @@ SECURITY_CHANGE_PASSWORD_TEMPLATE = 'change_password.html'
 SECURITY_FORGOT_PASSWORD_TEMPLATE = 'forgot_password.html'
 SECURITY_RESET_PASSWORD_TEMPLATE = 'reset_password.html'
 SECURITY_EMAIL_SENDER = 'noreply@mail.com'
+XACCEL_PATH = None
 
 MAIL_SERVER = "smtp.mail.com"
 MAIL_PORT = 465

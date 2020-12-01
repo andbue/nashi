@@ -207,7 +207,10 @@ class ImgProc(object):
             limg = cutout(pageimg, coords,
                           scale=pageimg.shape[1] / img_w,
                           rect=self.rect, rrect=self.rrect)
-            limg = self.dataproc.apply(limg)[0]
+            try:
+                limg = self.dataproc.apply(limg)[0]
+            except ValueError as err:
+                raise ValueError("Error on page {}, line {}: {}".format(pno, lid, err))
             if len(limg.shape) != 2:
                 continue
             res.append((lid, limg))

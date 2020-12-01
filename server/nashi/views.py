@@ -529,10 +529,18 @@ def getpng(bookname, file):
                                                file[:-4])
         if path.isfile(altfile):
             file = file[:-3] + "raw"
-    # return app.send_static_file("0003.png")
-    return send_from_directory(app.config['BOOKS_DIR'] + bookname
-                               + app.config['IMAGE_SUBDIR'],
-                               file+".png")
+    if app.config["XACCEL_PATH"] == None:
+        return send_from_directory(app.config['BOOKS_DIR'] + bookname
+                                + app.config['IMAGE_SUBDIR'],
+                                file+".png")
+    else:
+        localfile = app.config['BOOKS_DIR'] + bookname + app.config['IMAGE_SUBDIR'] + "/" + file + ".png"
+        response = Response()
+        response.headers['Content-Length'] = path.getsize(localfile)
+        response.headers['Content-Type'] = "image/png"
+        response.headers['X-Accel-Redirect'] = app.config["XACCEL_PATH"] + bookname + "/" + file + ".png"
+        return response
+     
 
 
 @app.route('/books/<bookname>/<pagename>/comments_jump', methods=['POST'])

@@ -5,7 +5,7 @@ with open("./README.md") as f:
 
 setup(
     name='nashi',
-    version='0.0.42',
+    version='0.0.43',
     license='GPL_v3.0',
     author='Andreas Büttner',
     author_email='andreas.buettner@uni-wuerzburg.de',
@@ -36,7 +36,8 @@ setup(
         'pillow',
         'krakensegment',
         'scikit-image',
-        'Flask'
+        'Flask',
+        'email_validator'
     ],
     classifiers=[
         'Programming Language :: Python :: 3',
