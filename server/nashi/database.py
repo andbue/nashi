@@ -11,7 +11,7 @@ except KeyError:
 
 if database_url.startswith("mysql"):
     engine = create_engine(database_url, convert_unicode=True,
-                           pool_pre_ping=True)
+            pool_pre_ping=True, connect_args={'connect_timeout': 3600})
 else:
     engine = create_engine(database_url, convert_unicode=True)
 
