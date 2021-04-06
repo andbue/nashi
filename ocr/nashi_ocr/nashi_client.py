@@ -18,6 +18,7 @@ from multiprocessing import Pool
 from os import path
 from tqdm import tqdm
 
+from tensorflow.keras import backend
 from calamari_ocr.ocr import PipelineParams
 from calamari_ocr.ocr.augmentation.dataaugmentationparams import DataAugmentationAmount
 from calamari_ocr.ocr.dataset.data import Data
@@ -546,6 +547,7 @@ class NashiClient():
         scenario = Scenario(params.scenario_params)
         trainer = scenario.create_trainer(params)
         trainer.train()
+        backend.clear_session()
 
     def predict_books(self, books, checkpoint, cachefile=None, pageupload=True, text_index=1, pred_all=False):
         if not pageupload:
@@ -652,6 +654,7 @@ class NashiClient():
         logger.info("Average sentence confidence: {:.2%}".format(avg_sentence_confidence / n_predictions))
 
         # reader.store(args.extension)
+        backend.clear_session()
 
         if pageupload:
             ocrdata = {}
@@ -764,6 +767,8 @@ class NashiClient():
         full_evaluation = {}
         for id, data in [(str(i), sent) for i, sent in all_prediction_sentences.items()] + [('voted', all_voter_sentences)]:
             full_evaluation[id] = {"eval": single_evaluation(id, data), "data": data}
+
+        backend.clear_session()
         return full_evaluation
 
     def upload_books(self, books, text_index=1):
