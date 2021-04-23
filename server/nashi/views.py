@@ -688,7 +688,8 @@ def pagedata(bookname, pagename):
             cur = l["id"]
             ldata = l
             line = root.find('.//ns:TextLine[@id="'+cur+'"]', namespaces=ns)
-            line.getparent().remove(line)
+            if line is not None:
+                line.getparent().remove(line)
 
         for l in [l for l in data["edits"] if l["action"] == "create"]:
             cur = l["id"]
@@ -711,6 +712,8 @@ def pagedata(bookname, pagename):
             rid = ldata["input"]["region"]
             line = root.find('.//ns:TextLine[@id="'+cur+'"]',
                              namespaces=ns)
+            if line is None:
+                continue
             line.attrib["comments"] = comments
             if textstatus == "edit":
                 tequiv = line.find('.//ns:TextEquiv[@index="0"]',
