@@ -1,6 +1,8 @@
 """
 A simple client to OCR texts transcribed in nashi
 """
+from tensorflow import keras
+from tensorflow.config import list_physical_devices
 
 import cv2 as cv
 import gzip
@@ -17,32 +19,43 @@ from lxml import etree, html
 from multiprocessing import Pool
 from os import path
 from tqdm import tqdm
+from typing import List
+from copy import deepcopy
 
-from tensorflow.keras import backend
-from calamari_ocr.ocr import PipelineParams
-from calamari_ocr.ocr.augmentation.dataaugmentationparams import DataAugmentationAmount
+from dataclasses import dataclass, field
+
+from paiargparse import pai_dataclass, pai_meta
+from tfaip.data.pipeline.definitions import PipelineMode, INPUT_PROCESSOR, TARGETS_PROCESSOR
+from calamari_ocr.ocr.dataset.datareader.base import CalamariDataGenerator, CalamariDataGeneratorParams, InputSample, SampleMeta
+
 from calamari_ocr.ocr.dataset.data import Data
+from calamari_ocr.ocr.dataset.datareader.base import InputSample, SampleMeta
+from calamari_ocr.ocr.dataset.textprocessors.basic_text_processors import BidiTextProcessorParams
+from calamari_ocr.ocr.dataset.textprocessors.basic_text_processors import BidiDirection
+from calamari_ocr.ocr.dataset.imageprocessors.final_preparation import FinalPreparationProcessorParams
+from calamari_ocr.ocr.dataset.imageprocessors.preparesample import PrepareSampleProcessorParams
+from calamari_ocr.ocr.dataset.imageprocessors.augmentation import AugmentationProcessorParams
+from calamari_ocr.ocr.scenario import CalamariScenario
+from calamari_ocr.ocr.training.pipeline_params import (
+    CalamariSplitTrainerPipelineParams,
+    CalamariTrainOnlyPipelineParams,
+)
+from calamari_ocr.ocr.predict.predictor import MultiPredictor
+from calamari_ocr.ocr.predict.params import  PredictorParams
+from calamari_ocr.ocr.voting import VoterParams
+from calamari_ocr.utils import glob_all        
 from calamari_ocr.scripts.eval import print_confusions
-from calamari_ocr.ocr.dataset.datareader.base import DataReader
-from calamari_ocr.ocr.dataset.datareader.factory import DataReaderFactory, FileDataReaderArgs
-from calamari_ocr.ocr.dataset.datareader.pagexml.reader import PageXMLReader, CutMode
-from calamari_ocr.ocr.dataset.imageprocessors import AugmentationProcessor, PrepareSampleProcessor
-from calamari_ocr.ocr.dataset.imageprocessors.default_image_processors import default_image_processors
-from calamari_ocr.ocr.dataset.params import InputSample, DataParams, SampleMeta
-from calamari_ocr.ocr.dataset.postprocessors.ctcdecoder import CTCDecoderProcessor
-from calamari_ocr.ocr.dataset.postprocessors.reshape import ReshapeOutputsProcessor
-from calamari_ocr.ocr.dataset.textprocessors import TextNormalizer, TextRegularizer, StripTextProcessor, BidiTextProcessor
-from calamari_ocr.ocr.dataset.textprocessors.text_regularizer import default_text_regularizer_replacements
-from calamari_ocr.ocr.model.ctcdecoder.ctc_decoder import CTCDecoderParams
-from calamari_ocr.ocr.predict.params import PredictorParams
-from calamari_ocr.ocr.scenario import Scenario
-from calamari_ocr.ocr.training.params import params_from_definition_string, TrainerParams
-from calamari_ocr.ocr.voting.params import VoterParams, VoterType
-from calamari_ocr.utils import glob_all
-from tfaip.base.data.pipeline.definitions import DataProcessorFactoryParams
-from tfaip.base.data.pipeline.datapipeline import SamplePipelineParams
 
-from tfaip.base.data.pipeline.definitions import INPUT_PROCESSOR, PipelineMode, TARGETS_PROCESSOR
+from calamari_ocr.ocr.training.cross_fold_trainer import (
+    CrossFoldTrainer,
+    CrossFoldTrainerParams,
+)
+
+from calamari_ocr.ocr.dataset.datareader.pagexml.reader import PageXMLReader, CutMode
+from tfaip.util.tfaipargparse import post_init
+from tfaip.data.databaseparams import DataPipelineParams
+from tfaip.data.pipeline.definitions import PipelineMode
+
 import tfaip.util.logging
 logger = tfaip.util.logging.logger(__name__)
 
@@ -61,25 +74,36 @@ def lids_from_books(books, cachefile, new_only=False, complete_only=False, skip_
                         continue
                     yield sample.name
 
+@pai_dataclass
+@dataclass                 
+class Nsh5(CalamariDataGeneratorParams):
+    cachefile: str = field(default='nashi_cache.h5', metadata=pai_meta(
+        help="Path to the h5py file"
+    ))
+    lines: List[str] = field(default_factory=list, metadata=pai_meta(help="Iterable of sample ids in h5py file"))
+    
+    
+    def __len__(self):
+        return len(self.lines)    
+    
+    def select(self, indices: List[int]):
+        self.lines = [self.lines[i] for i in indices]
+    
+    def to_prediction(self):
+        return self
+    
+    @staticmethod
+    def cls():
+        return Nsh5DataReader
+    
+    
 
-class Nsh5DataReader(DataReader):
-    def __init__(self, mode: PipelineMode, images=[], texts=[],
-                 skip_invalid=False,
-                 remove_invalid=False,
-                 non_existing_as_empty=False,
-                 args=None):
-        """ Create a dataset from nashi cache
-        Parameters
-        ----------
-        images : [path to h5py file]
-        texts : ["/path/to/line1", "/path/to/line2", ...] (iterable of sample ids in h5py file)
-        """
-        super().__init__(mode, skip_invalid, remove_invalid)
-
-        self.predictions = {} if self.mode == PipelineMode.Prediction else None
-        self.cachefile = images[0]
-
-        for sid in texts:
+class Nsh5DataReader(CalamariDataGenerator[Nsh5]):
+    def __init__(self, mode: PipelineMode, params: Nsh5):
+        super().__init__(mode, params)
+        self.predictions = {} if self.mode == PipelineMode.PREDICTION else None
+        self.cachefile = params.cachefile
+        for sid in params.lines:
             self.add_sample({"id": sid})
 
     def store_text(self, sentence, sample, output_dir, extension):
@@ -122,11 +146,8 @@ class Nsh5DataReader(DataReader):
                                   sample['id'], fold_id=sample['fold_id']),
                               )
 
-        def __del__(self):
-            self.cacheclose()
-
-
-DataReaderFactory.CUSTOM_READERS["Nsh5"] = Nsh5DataReader
+    def __del__(self):
+        self.cacheclose()
 
 
 def cutout(pageimg, coordstring, scale=1, rect=False, rrect=False):
@@ -147,70 +168,60 @@ def cutout(pageimg, coordstring, scale=1, rect=False, rrect=False):
     return PageXMLReader.cutout(pageimg, coordstring, mode=mode, angle=0, cval=None, scale=scale)
 
 
-def get_preprocs(bidi_dir="L", pad=0):
-    '''Construct preprocessor functions.
-     bidi_dir in ("" (no bidi), None (->from input), L, R).'''
+def get_preproc_text(rtl=False):
+    data_params = Data.default_params()
+    data_params.skip_invalid_gt = False
+    data_params.pre_proc.run_parallel = False
+    
+    if rtl:
+        for p in data_params.pre_proc.processors_of_type(BidiTextProcessorParams):
+            p.bidi_direction = BidiDirection.RTL
+    post_init(data_params)
 
-    params: TrainerParams = Scenario.default_trainer_params()
+    pl = Data(data_params).create_pipeline(DataPipelineParams, None)
+    pl.mode = PipelineMode.TARGETS
+    preproc = data_params.pre_proc.create(pl)
+    
+    def pp(text):
+        its = InputSample(None, text, SampleMeta("001", fold_id="01")).to_input_target_sample()
+        s = preproc.apply_on_sample(its)
+        return s.targets
+    return pp
 
-    # =================================================================================================================
-    # Data Params
-    data_params: DataParams = params.scenario_params.data_params
-    data_params.train = PipelineParams(
-        skip_invalid=False,
-        remove_invalid=True,
-        batch_size=1,
-        num_processes=1,
-    )
+def get_preproc_image():
+    data_params = Data.default_params()
+    data_params.skip_invalid_gt = False
+    data_params.pre_proc.run_parallel = False
+    data_params.pre_proc.processors = data_params.pre_proc.processors[:-1]
+    for p in data_params.pre_proc.processors_of_type(FinalPreparationProcessorParams):
+        p.pad = 0
+    post_init(data_params)
+    pl = Data(data_params).create_pipeline(DataPipelineParams, None)
+    pl.mode = PipelineMode.PREDICTION
+    preproc = data_params.pre_proc.create(pl)
+    
+    def pp(image):
+        its = InputSample(image, None, SampleMeta("001", fold_id="01")).to_input_target_sample()
+        s = preproc.apply_on_sample(its)
+        return s.inputs
+    return pp
 
-    data_params.pre_processors_ = SamplePipelineParams(run_parallel=True)
-
-    for p in [p.name for p in default_image_processors()]:
-        p_p = Data.data_processor_factory().processors[p].default_params()
-        if 'pad' in p_p:
-            p_p['pad'] = pad
-        data_params.pre_processors_.sample_processors.append(DataProcessorFactoryParams(p, INPUT_PROCESSOR, p_p))
-
-    # Text pre processing (reading)
-    data_params.pre_processors_.sample_processors.extend(
-        [
-            DataProcessorFactoryParams(TextNormalizer.__name__, TARGETS_PROCESSOR, {'unicode_normalization': 'NFC'}),
-            DataProcessorFactoryParams(TextRegularizer.__name__, TARGETS_PROCESSOR, {'replacements': default_text_regularizer_replacements(['extended'])}),
-            DataProcessorFactoryParams(StripTextProcessor.__name__, TARGETS_PROCESSOR)
-        ])
-    if bidi_dir != "":
-        data_params.pre_processors_.sample_processors.append(
-            DataProcessorFactoryParams(BidiTextProcessor.__name__, TARGETS_PROCESSOR, {'bidi_direction': bidi_dir})
-        )
-
-    data_params.line_height_ = 48
-    text_preproc_bidi = Data.data_processor_factory().create_sequence(data_params.pre_processors_.sample_processors, data_params,
-                                                                      mode=PipelineMode.Targets)
-    img_preproc = Data.data_processor_factory().create_sequence(data_params.pre_processors_.sample_processors, data_params,
-                                                                mode=PipelineMode.Prediction)
-
-    def text_preproc(text):
-        return text_preproc_bidi.apply_on_sample(
-            InputSample(None, text, None).to_input_target_sample()).targets
-
-    global image_preproc
-
-    def image_preproc(image):
-        return img_preproc.apply_on_sample(
-            InputSample(image, None, None).to_input_target_sample()).inputs
-
-    return text_preproc, image_preproc
 
 
 class ImgProc(object):
-    def __init__(self, book, session, img_preproc, rect, rrect):
-        self.book = book
+    def __init__(self, session, rect, rrect):
         self.s = session
-        self.dataproc = img_preproc
+        self.dataproc = None
         self.rect = rect
         self.rrect = rrect
+        
+    def get_dataproc(self):
+        if self.dataproc is None:
+            self.dataproc = get_preproc_image()
+        return self.dataproc
 
     def __call__(self, item):
+        dataproc = self.get_dataproc()
         # b = self.book
         pno, url, img_w, lines = item
         res = []
@@ -225,7 +236,7 @@ class ImgProc(object):
                           scale=pageimg.shape[1] / img_w,
                           rect=self.rect, rrect=self.rrect)
             try:
-                limg = self.dataproc(limg)
+                limg = dataproc(limg)
             except ValueError as err:
                 raise ValueError("Error on page {}, line {}: {}".format(pno, lid, err))
             if len(limg.shape) != 2:
@@ -235,12 +246,12 @@ class ImgProc(object):
 
 
 class NashiClient():
-    def __init__(self, baseurl, cachefile, login, password=None):
+    def __init__(self, cachefile="nashi_cache.h5", baseurl="", login=None, password=None):
         """ Create a nashi client
         Parameters
         ----------
-        baseurl : web address of nashi instance
         cachefile : filename of hdf5-cache
+        baseurl : web address of nashi instance
         login : user for nashi
         password : asks for user input if empty
         """
@@ -254,10 +265,16 @@ class NashiClient():
         if not path.isfile(cachefile):
             cache = h5py.File(cachefile, "w", libver='latest', swmr=True)
             cache.close()
+        self.creds = (login, password)
 
-        self.login(login, password)
-
+    def get_session(self):
+        if self.session == None:
+            self.login(*self.creds)
+        return self.session
+        
     def login(self, email, pw):
+        if login is None:
+            raise Exception("Login information is needed to access nashi server!")
         if pw is None:
             pw = getpass("Password: ")
         s = requests.Session()
@@ -288,9 +305,7 @@ class NashiClient():
             books = [books]
         cache = h5py.File(self.cachefile, 'a', libver='latest')
 
-        bidi_dir = 'R' if rtl else ''
-
-        text_preproc, image_preproc = get_preprocs(bidi_dir=bidi_dir)
+        text_preproc = get_preproc_text(rtl)
 
         pool = Pool()
 
@@ -366,7 +381,7 @@ class NashiClient():
 
                     yield pno, url, img_w, imglist
 
-            r = pool.imap_unordered(ImgProc(b, self.session, image_preproc, rect, rrect),
+            r = pool.imap_unordered(ImgProc(self.get_session(), rect, rrect),
                                     bookconv(bookiter))
 
             for res in tqdm(r, total=booklen, desc=b.ljust(max(len(x) for x in books))):
@@ -389,7 +404,7 @@ class NashiClient():
         pool.join()
         cache.flush()
         cache.close()
-
+        
     def train_books(self, books,
                     cachefile=None,
                     name="model",
@@ -397,7 +412,7 @@ class NashiClient():
                     validation_split_ratio=1,
                     bidi="",
                     n_augmentations=0,
-                    ema_weights=False,
+                    ema_decay=0.0,
                     train_verbose=1,
                     debug=False,
                     epochs=100,
@@ -405,155 +420,148 @@ class NashiClient():
                     keep_loaded_codec=False,
                     preload=True,
                     weights=None,
-                    ensemble=-1):
+                    ensemble=0):
+        
+        keras.backend.clear_session()
 
         if isinstance(books, str):
             books = [books]
         if cachefile is None:
             cachefile = self.cachefile
 
-        dataset_args = FileDataReaderArgs(
-            line_generator_params=None,
-            text_generator_params=None,
-            pad=None,
-            text_index=0,
-        )
+        p = CalamariScenario.default_trainer_params()
+        lids = list(lids_from_books(books, cachefile, complete_only=True, skip_commented=skip_commented))
+        train = Nsh5(cachefile=cachefile, lines=lids)
+        
+        newprcs = []
+        for prc in p.scenario.data.pre_proc.processors:
+            prc = deepcopy(prc)
+            if PipelineMode.TRAINING in prc.modes:
+                if isinstance(prc, FinalPreparationProcessorParams):
+                    prc.normalize, prc.invert, prc.transpose = False, False, True
+                elif isinstance(prc, AugmentationProcessorParams):
+                    prc.n_augmentations = n_augmentations
+                elif not isinstance(prc, PrepareSampleProcessorParams):
+                    prc.modes.discard(PipelineMode.TRAINING)
+            elif isinstance(prc, PrepareSampleProcessorParams):
+                prc.modes.add(PipelineMode.TRAINING)
+            newprcs.append(prc)
+        p.scenario.data.pre_proc.processors = newprcs
 
-        params: TrainerParams = Scenario.default_trainer_params()
-
-        # =================================================================================================================
-        # Data Params
-        # resolve lines
-        lids = list(lids_from_books(books, self.cachefile, complete_only=True, skip_commented=skip_commented))
-        data_params: DataParams = params.scenario_params.data_params
-
-        if 0 < validation_split_ratio < 1:
-            valsamples = random.sample(lids, int((1-validation_split_ratio)*len(lids)))
-            for s in valsamples:
-                lids.remove(s)
-            # validation
-            data_params.val = PipelineParams(
-                 type="Nsh5",
-                 files=[cachefile],
-                 text_files=valsamples,
-                 skip_invalid=False,
-                 gt_extension=None,
-                 data_reader_args=dataset_args,
-                 batch_size=1,
-                 num_processes=1,
-             )
-            params.use_training_as_validation = False
+        p.device.gpus = [n for n, _ in enumerate(list_physical_devices("GPU"))]
+        
+        if validation_split_ratio < 1:
+            p.gen = CalamariSplitTrainerPipelineParams(validation_split_ratio=validation_split_ratio,
+                                                       train=train)
         else:
-            params.use_training_as_validation = True
-            data_params.val = None
-
-        data_params.train = PipelineParams(
-            type="Nsh5",
-            skip_invalid=False,
-            remove_invalid=False,
-            files=[cachefile],
-            text_files=lids,
-            gt_extension=None,
-            data_reader_args=dataset_args,
-            batch_size=1,
-            num_processes=1,
-        )
-
-        data_params.pre_processors_ = SamplePipelineParams(run_parallel=True)
-        data_params.post_processors_.run_parallel = SamplePipelineParams(
-            run_parallel=False, sample_processors=[
-                DataProcessorFactoryParams(ReshapeOutputsProcessor.__name__),
-                DataProcessorFactoryParams(CTCDecoderProcessor.__name__),
-            ])
-
-        data_params.pre_processors_.sample_processors.append(DataProcessorFactoryParams("FinalPreparation", INPUT_PROCESSOR, {
-                'normalize': True,
-                'invert': False,
-                'transpose': True,
-                'pad': 16,
-                'pad_value': False}))
-
-        # Text post processing (prediction)
-        data_params.post_processors_.sample_processors.extend(
-            [
-                DataProcessorFactoryParams(TextNormalizer.__name__, TARGETS_PROCESSOR,
-                                           {'unicode_normalization': "NFC"}),
-                DataProcessorFactoryParams(TextRegularizer.__name__, TARGETS_PROCESSOR,
-                                           {'replacements': default_text_regularizer_replacements(["extended"])}),
-                DataProcessorFactoryParams(StripTextProcessor.__name__, TARGETS_PROCESSOR)
-            ])
+            p.gen = CalamariTrainOnlyPipelineParams(train=train)
+            
         if bidi:
-            data_params.post_processors_.sample_processors.append(
-                DataProcessorFactoryParams(BidiTextProcessor.__name__, TARGETS_PROCESSOR, {'bidi_direction': "R"})
-            )
+            for prc in p.scenario.data.post_proc.processors_of_type(BidiTextProcessorParams):
+                prc.bidi_direction = BidiDirection.RTL
+            
+        p.epochs = epochs
+        p.codec.keep_loaded = keep_loaded_codec
+        p.gen.train.preload = preload
+        p.warmstart.model = weights
+        p.scenario.model.ensemble = ensemble
+        p.ema_decay = ema_decay
 
-        data_params.pre_processors_.sample_processors.extend([
-            DataProcessorFactoryParams(AugmentationProcessor.__name__, {PipelineMode.Training}, {'augmenter_type': 'simple'}),
-            DataProcessorFactoryParams(PrepareSampleProcessor.__name__, INPUT_PROCESSOR),
-        ])
+        p.scenario.data.__post_init__()
+        p.scenario.__post_init__()
+        p.__post_init__()
+                
+        p.output_dir = name
+        trainer = p.scenario.cls().create_trainer(p)
+        return trainer.train()
 
-        data_params.data_aug_params = DataAugmentationAmount.from_factor(n_augmentations)
-        data_params.line_height_ = 48
+    def cftrain_books(self, books,
+                    n_folds=5,
+                    cachefile=None,
+                    name="models",
+                    tempdir=None,
+                    keep_temporary_files=False,
+                    max_parallel_models=-1,
+                    skip_commented=True,
+                    validation_split_ratio=1,
+                    bidi="",
+                    n_augmentations=0,
+                    ema_decay=0.0,
+                    train_verbose=1,
+                    debug=False,
+                    epochs=100,
+                    whitelist="",
+                    keep_loaded_codec=False,
+                    preload=True,
+                    weights=[],
+                    ensemble=0):
+        
+        keras.backend.clear_session()
+        if isinstance(weights, str):
+            weights = [weights]
+        if isinstance(books, str):
+            books = [books]
+        if cachefile is None:
+            cachefile = self.cachefile
+        if max_parallel_models < 1:
+            max_parallel_models = n_folds
+        lids = list(lids_from_books(books, cachefile, complete_only=True, skip_commented=skip_commented))
+        train = Nsh5(cachefile=cachefile, lines=lids)
+            
+        cfparams = CrossFoldTrainerParams()
+        cfparams.weights = weights
+        cfparams.temporary_dir = tempdir
+        cfparams.best_models_dir = name
+        cfparams.n_folds = n_folds
+        cfparams.keep_temporary_files = False
+        cfparams.max_parallel_models = max_parallel_models
+        
+        p = cfparams.trainer
+        
+        newprcs = []
+        for prc in cfparams.trainer.scenario.data.pre_proc.processors:
+            prc = deepcopy(prc)
+            if PipelineMode.TRAINING in prc.modes:
+                if isinstance(prc, FinalPreparationProcessorParams):
+                    prc.normalize, prc.invert, prc.transpose = False, False, True  
+                elif isinstance(prc, AugmentationProcessorParams):
+                    prc.n_augmentations = n_augmentations
+                elif not isinstance(prc, PrepareSampleProcessorParams):
+                    prc.modes = set()
+            elif isinstance(prc, PrepareSampleProcessorParams):
+                prc.modes.add(PipelineMode.TRAINING)
+            newprcs.append(prc)
+        cfparams.trainer.scenario.data.pre_proc.processors = newprcs
 
-        # =================================================================================================================
-        # Trainer Params
-        params.calc_ema = ema_weights
-        params.verbose = train_verbose
-        params.force_eager = debug
-        params.skip_model_load_test = not debug
-        params.scenario_params.debug_graph_construction = debug
-        params.epochs = epochs
-        # params.samples_per_epoch = int(args.samples_per_epoch) if args.samples_per_epoch >= 1 else -1
-        params.samples_per_epoch = -1
-        # params.scale_epoch_size = abs(args.samples_per_epoch) if args.samples_per_epoch < 1 else 1
-        params.scale_epoch_size = 1
-        params.skip_load_model_test = True
-        params.scenario_params.export_frozen = False
-        # params.checkpoint_save_freq_ = args.checkpoint_frequency if args.checkpoint_frequency >= 0 else args.early_stopping_frequency
-        params.checkpoint_save_freq_ = 1
-        params.checkpoint_dir = "checkpoints"
-        params.test_every_n = 1
-        params.skip_invalid_gt = False
-        params.data_aug_retrain_on_original = True
+        cfparams.trainer.device.gpus = [n for n, _ in enumerate(list_physical_devices("GPU"))]
+        
+        cfparams.trainer.gen.train = train
+            
+        if bidi:
+            for prc in cfparams.trainer.scenario.data.post_proc.processors_of_type(BidiTextProcessorParams):
+                prc.bidi_direction = BidiDirection.RTL
+        
+        cfparams.trainer.epochs = epochs
+        cfparams.trainer.codec.keep_loaded = keep_loaded_codec
+        cfparams.trainer.gen.train.preload = preload
+        cfparams.trainer.scenario.model.ensemble = ensemble
+        cfparams.trainer.ema_decay = ema_decay
+        
+        
+        cfparams.trainer.scenario.data.__post_init__()
+        cfparams.trainer.scenario.__post_init__()
+        cfparams.trainer.__post_init__()
+        
+        print(cfparams.to_json())
+        with open("debug.json" , "w") as f:
+            f.write(cfparams.to_json())
+        trainer = CrossFoldTrainer(cfparams)        
+        return trainer.run()
 
-        # if args.seed > 0:
-        #    params.random_seed = args.seed
-
-        params.optimizer_params.clip_grad = 5
-        params.codec_whitelist = whitelist
-        params.keep_loaded_codec = keep_loaded_codec
-        params.preload_training = preload
-        params.preload_validation = preload
-        params.warmstart_params.model = weights
-
-        params.auto_compute_codec = True
-        params.progress_bar = True
-
-        params.early_stopping_params.frequency = 1
-        params.early_stopping_params.upper_threshold = 0.9
-        params.early_stopping_params.lower_threshold = 1.0 - 1.0
-        params.early_stopping_params.n_to_go = 5
-        params.early_stopping_params.best_model_name = ''
-        params.early_stopping_params.best_model_output_dir = "checkpoints"
-        params.scenario_params.default_serve_dir_ = f'best_{name}.ckpt.h5'
-        params.scenario_params.trainer_params_filename_ = f'best_{name}.ckpt.json'
-
-        # =================================================================================================================
-        # Model params
-        params_from_definition_string("cnn=40:3x3,pool=2x2,cnn=60:3x3,pool=2x2,lstm=200,dropout=0.5", params)
-        params.scenario_params.model_params.ensemble = ensemble
-        params.scenario_params.model_params.no_masking_out_during_training = False
-
-        scenario = Scenario(params.scenario_params)
-        trainer = scenario.create_trainer(params)
-        trainer.train()
-        backend.clear_session()
-
-    def predict_books(self, books, checkpoint, cachefile=None, pageupload=True, text_index=1, pred_all=False):
-        if not pageupload:
-            print("""Warning: trying to save results to the hdf5-Cache may fail due to some issue
-                  with file access from multiple threads. It should work, however, if you set
-                  export HDF5_USE_FILE_LOCKING='FALSE'.""")
+    
+    def predict_books(self, books, checkpoint, cachefile=None, pageupload=True, text_index=1,
+                      pred_all=False):
+        keras.backend.clear_session()
         if type(books) == str:
             books = [books]
         if type(checkpoint) == str:
@@ -563,71 +571,37 @@ class NashiClient():
         checkpoint = [cp[:-5] for cp in checkpoint]
         if cachefile is None:
             cachefile = self.cachefile
-
-        def create_ctc_decoder_params():
-            params = CTCDecoderParams()
-            params.beam_width = 25
-            params.word_separator = ' '
-            # args.dictionary = None
-            return params
-
         verbose = False
-
-        # add json as extension, resolve wildcard, expand user, ... and remove .json again
-        checkpoint = [(cp if cp.endswith(".json") else cp + ".json") for cp in checkpoint]
-        checkpoint = glob_all(checkpoint)
-        checkpoint = [cp[:-5] for cp in checkpoint]
-        # extension = None
-
-        # create ctc decoder
-        # ctc_decoder_params = create_ctc_decoder_params()
-
-        # create voter
-        voter_params = VoterParams()
-        voter_params.type = VoterType("confidence_voter_default_ctc")
-
-        # skip invalid files and remove them, there wont be predictions of invalid files
         lids = list(lids_from_books(books, cachefile,
                     complete_only=False, skip_commented=False, new_only=not pred_all))
-        predict_params = PipelineParams(
-            type="Nsh5",
-            skip_invalid=False,
-            remove_invalid=False,
-            files=glob_all([cachefile]),
-            text_files=lids,
-            data_reader_args=FileDataReaderArgs(
-                pad=None,
-                text_index=1,
-            ),
-            batch_size=1,
-            num_processes=1,
+        data = Nsh5(cachefile=cachefile, lines=lids)
+
+        
+        predparams = PredictorParams()
+        predparams.device.gpus = [n for n, _ in enumerate(list_physical_devices("GPU"))]
+        
+        predictor = MultiPredictor.from_paths(
+            checkpoints=checkpoint,
+            voter_params=VoterParams(),
+            predictor_params=predparams,
         )
-
-        # predict for all models
-        # TODO: Use CTC Decoder params
-        from calamari_ocr.ocr.predict.predictor import MultiPredictor
-        predictor = MultiPredictor.from_paths(checkpoints=checkpoint, voter_params=voter_params,
-                                              predictor_params=PredictorParams(silent=True, progress_bar=True))
-
-        preprocs = [p for p in predictor.data.params().pre_processors_.sample_processors
-                    if PipelineMode.Prediction in p.modes and not p.name == 'PrepareSampleProcessor']
-        for p in preprocs:
-            if p.name == "FinalPreparation":
-                p.args = {
-                        'normalize': True,
-                        'invert': False,
-                        'transpose': True,
-                        'pad': 16,
-                        'pad_value': False}
-            else:
-                p.modes.remove(PipelineMode.Prediction)
-
-        do_prediction = predictor.predict(predict_params)
-        pipeline = predictor.data.get_predict_data(predict_params)
+        
+        newprcs = []
+        for prc in predictor.data.params.pre_proc.processors:
+            prc = deepcopy(prc)
+            if isinstance(prc, FinalPreparationProcessorParams):
+                prc.normalize, prc.invert, prc.transpose = False, False, True
+                newprcs.append(prc)
+            elif isinstance(prc, PrepareSampleProcessorParams):
+                newprcs.append(prc)
+        predictor.data.params.pre_proc.processors = newprcs
+        
+        do_prediction = predictor.predict(data)
+        pipeline = predictor.data.get_or_create_pipeline(predictor.params.pipeline, data)
         reader = pipeline.reader()
         if len(reader) == 0:
-            raise Exception("Empty dataset provided. Check your files argument!")
-
+            raise Exception("Empty dataset provided. Check your lines (got {})!".format(lids))
+        
         avg_sentence_confidence = 0
         n_predictions = 0
 
@@ -653,9 +627,6 @@ class NashiClient():
 
         logger.info("Average sentence confidence: {:.2%}".format(avg_sentence_confidence / n_predictions))
 
-        # reader.store(args.extension)
-        backend.clear_session()
-
         if pageupload:
             ocrdata = {}
             for lname, text in reader.predictions.items():
@@ -667,7 +638,7 @@ class NashiClient():
                 ocrdata[b][p][ln] = text
 
             data = {"ocrdata": ocrdata, "index": text_index}
-            self.session.post(self.baseurl+"/_ocrdata",
+            self.get_session().post(self.baseurl+"/_ocrdata",
                               data=gzip.compress(json.dumps(data).encode("utf-8")),
                               headers={"Content-Type": "application/json;charset=UTF-8",
                                        "Content-Encoding": "gzip"})
@@ -675,8 +646,9 @@ class NashiClient():
         else:
             reader.store()
             logger.info("All prediction files written")
-
-    def evaluate_books(self, books, checkpoint, cachefile=None, output_individual_voters=False, n_confusions=10):
+        
+    def evaluate_books(self, books, checkpoint, cachefile=None, output_individual_voters=False, n_confusions=10, silent=True):
+        keras.backend.clear_session()
         if type(books) == str:
             books = [books]
         if type(checkpoint) == str:
@@ -686,76 +658,72 @@ class NashiClient():
         checkpoint = [cp[:-5] for cp in checkpoint]
         if cachefile is None:
             cachefile = self.cachefile
-        lids = list(lids_from_books(books, cachefile,
-                    complete_only=True, skip_commented=True))
+        verbose = False
+        lids = list(lids_from_books(books, cachefile, complete_only=True, skip_commented=True))
+        data = Nsh5(cachefile=cachefile, lines=lids)
 
-        pipeline_params = PipelineParams(
-            type="Nsh5",
-            skip_invalid=False,
-            remove_invalid=False,
-            files=[cachefile],
-            gt_extension=None,
-            text_files=lids,
-            data_reader_args=FileDataReaderArgs(
-                pad=None,
-                text_index=1,
-            ),
-            batch_size=1,
-            num_processes=1,
+        
+        predparams = PredictorParams()
+        predparams.device.gpus = [n for n, _ in enumerate(list_physical_devices("GPU"))]
+        predparams.silent = silent
+        
+        predictor = MultiPredictor.from_paths(
+            checkpoints=checkpoint,
+            voter_params=VoterParams(),
+            predictor_params=predparams,
         )
-
-        from calamari_ocr.ocr.predict.predictor import MultiPredictor
-        voter_params = VoterParams()
-        predictor = MultiPredictor.from_paths(checkpoints=checkpoint, voter_params=voter_params,
-                                              predictor_params=PredictorParams(silent=True, progress_bar=True))
-
-        preprocs = [p for p in predictor.data.params().pre_processors_.sample_processors
-                    if PipelineMode.Prediction in p.modes and not p.name == 'PrepareSampleProcessor']
-        for p in preprocs:
-            if p.name == "FinalPreparation":
-                p.args = {
-                        'normalize': True,
-                        'invert': False,
-                        'transpose': True,
-                        'pad': 16,
-                        'pad_value': False}
-            else:
-                p.modes.remove(PipelineMode.Prediction)
-
-        do_prediction = predictor.predict(pipeline_params)
-
-        all_voter_sentences = []
+        
+        newprcs = []
+        for prc in predictor.data.params.pre_proc.processors:
+            prc = deepcopy(prc)
+            if isinstance(prc, FinalPreparationProcessorParams):
+                prc.normalize, prc.invert, prc.transpose = False, False, True
+                newprcs.append(prc)
+            elif isinstance(prc, PrepareSampleProcessorParams):
+                newprcs.append(prc)
+        predictor.data.params.pre_proc.processors = newprcs
+        
+        do_prediction = predictor.predict(data)
+        
+        all_voter_sentences = {}
         all_prediction_sentences = {}
 
         for s in do_prediction:
-            _, (_, prediction), _ = s.inputs, s.outputs, s.meta
+            inputs, (result, prediction), meta = s.inputs, s.outputs, s.meta
             sentence = prediction.sentence
             if prediction.voter_predictions is not None and output_individual_voters:
                 for i, p in enumerate(prediction.voter_predictions):
                     if i not in all_prediction_sentences:
-                        all_prediction_sentences[i] = []
-                    all_prediction_sentences[i].append(p.sentence)
-            all_voter_sentences.append(sentence)
-
+                        all_prediction_sentences[i] = {}
+                    all_prediction_sentences[i][s.meta["id"]] = p.sentence
+            all_voter_sentences[s.meta["id"]] = sentence
+        
         # evaluation
-        from calamari_ocr.ocr.evaluator import Evaluator
-        evaluator = Evaluator(predictor.data)
-        evaluator.preload_gt(gt_dataset=pipeline_params, progress_bar=True)
+        from calamari_ocr.ocr.evaluator import Evaluator, EvaluatorParams
+
+        evaluator_params = EvaluatorParams(
+            setup=predparams.pipeline,
+            progress_bar=True,
+            skip_empty_gt=True,
+        )
+        evaluator = Evaluator(evaluator_params, predictor.data)
+        evaluator.preload_gt(gt_dataset=data, progress_bar=True)
 
         def single_evaluation(label, predicted_sentences):
-            if len(predicted_sentences) != len(evaluator.preloaded_gt):
-                raise Exception("Mismatch in number of gt and pred files: {} != {}. Probably, the prediction did "
-                                "not succeed".format(len(evaluator.preloaded_gt), len(predicted_sentences)))
-
-            r = evaluator.evaluate(gt_data=evaluator.preloaded_gt, pred_data=predicted_sentences,
-                                   progress_bar=True, processes=1)
+            r = evaluator.evaluate(gt_data=evaluator.preloaded_gt, pred_data=predicted_sentences)
 
             print("=================")
             print(f"Evaluation result of {label}")
             print("=================")
             print("")
-            print("Got mean normalized label error rate of {:.2%} ({} errs, {} total chars, {} sync errs)".format(
-                r["avg_ler"], r["total_char_errs"], r["total_chars"], r["total_sync_errs"]))
+            print(
+                "Got mean normalized label error rate of {:.2%} ({} errs, {} total chars, {} sync errs)".format(
+                    r["avg_ler"],
+                    r["total_char_errs"],
+                    r["total_chars"],
+                    r["total_sync_errs"],
+                )
+            )
             print()
             print()
 
@@ -765,11 +733,15 @@ class NashiClient():
             return r
 
         full_evaluation = {}
-        for id, data in [(str(i), sent) for i, sent in all_prediction_sentences.items()] + [('voted', all_voter_sentences)]:
+        for id, data in [(str(i), sent) for i, sent in all_prediction_sentences.items()] + [("voted", all_voter_sentences)]:
             full_evaluation[id] = {"eval": single_evaluation(id, data), "data": data}
 
-        backend.clear_session()
-        return full_evaluation
+        if not predparams.silent:
+            print(full_evaluation)
+
+
+        return full_evaluation        
+        
 
     def upload_books(self, books, text_index=1):
         """ Upload books from the cachefile to the server
@@ -797,7 +769,7 @@ class NashiClient():
             ocrdata[b][p][ln] = line.attrs.get("pred")
 
         data = {"ocrdata": ocrdata, "index": text_index}
-        self.session.post(self.baseurl+"/_ocrdata",
+        self.get_session().post(self.baseurl+"/_ocrdata",
                           data=gzip.compress(json.dumps(data).encode("utf-8")),
                           headers={"Content-Type": "application/json;charset=UTF-8",
                                    "Content-Encoding": "gzip"})
@@ -813,7 +785,7 @@ class NashiClient():
         ----------
         dict mapping page names to lxml etree instances
         """
-        pagezip = self.session.get(self.baseurl+"/books/{}_PageXML.zip"
+        pagezip = self.get_session().get(self.baseurl+"/books/{}_PageXML.zip"
                                    .format(bookname))
         f = BytesIO(pagezip.content)
         zf = zipfile.ZipFile(f)
@@ -829,6 +801,7 @@ class NashiClient():
         f.close()
         return book
 
+
     def genbook(self, bookname):
         """ Download a book from the nashi server
         Parameters
@@ -839,11 +812,10 @@ class NashiClient():
         ----------
         (pagename, etree-root), number of pages
         """
-        pagezip = self.session.get(self.baseurl+"/books/{}_PageXML.zip"
+        pagezip = self.get_session().get(self.baseurl+"/books/{}_PageXML.zip"
                                    .format(bookname))
         f = BytesIO(pagezip.content)
         zf = zipfile.ZipFile(f)
-        # book = {}
         namelist = zf.namelist()
         booklen = len(namelist)
 
@@ -854,3 +826,4 @@ class NashiClient():
 
         return (((path.splitext(path.split(fn)[1])[0]), zf_to_etree(fn))
                 for fn in namelist), booklen
+

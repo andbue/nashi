@@ -5,7 +5,7 @@ with open("./README.md") as f:
 
 setup(
     name='nashi_ocr',
-    version='0.3.0',
+    version='0.4.0',
     license='GPL_v3.0',
     author='Andreas Büttner',
     author_email='andreas.buettner@uni-wuerzburg.de',
@@ -22,7 +22,7 @@ setup(
         "h5py",
         "numpy", 
         "lxml",
-        'calamari_ocr>=2.0.1'
+        'calamari_ocr>=2.1.1'
     ],
     classifiers=[
         'Programming Language :: Python :: 3',
