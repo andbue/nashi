@@ -494,9 +494,7 @@ class NashiClient:
                 elif isinstance(prc, AugmentationProcessorParams):
                     prc.n_augmentations = n_augmentations
                 elif not isinstance(prc, PrepareSampleProcessorParams):
-                    prc.modes.discard(PipelineMode.TRAINING)
-            elif isinstance(prc, PrepareSampleProcessorParams):
-                prc.modes.add(PipelineMode.TRAINING)
+                    prc.modes -= (PipelineMode.TRAINING, PipelineMode.EVALUATION)
             newprcs.append(prc)
         p.scenario.data.pre_proc.processors = newprcs
 
@@ -588,8 +586,6 @@ class NashiClient:
                     prc.n_augmentations = n_augmentations
                 elif not isinstance(prc, PrepareSampleProcessorParams):
                     prc.modes = set()
-            elif isinstance(prc, PrepareSampleProcessorParams):
-                prc.modes.add(PipelineMode.TRAINING)
             newprcs.append(prc)
         cfparams.trainer.scenario.data.pre_proc.processors = newprcs
 
