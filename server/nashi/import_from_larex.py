@@ -229,7 +229,7 @@ def pagexmllineseg(xmlfile, imgpath, text_direction='horizontal-lr',
             if not coordmap[c]["type"] == "drop-capital" and not binarization.is_bitonal(cropped):
                 try:
                     cropped = binarization.nlbin(cropped)
-                except SystemError:
+                except (SystemError, ValueError):
                     continue
             if coordmap[c]["type"] == "drop-capital":
                 lines = [1]
