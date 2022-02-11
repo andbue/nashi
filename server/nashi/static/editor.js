@@ -1099,7 +1099,7 @@ Nashi.prototype.delActivePoints = function(){
 
 /////SEARCH FUNCTIONS///////////////////////////////////////////////////////////
 
-Nashi.prototype.jump_comment = function(start="", dir=1){
+Nashi.prototype.jump_comment = function(start="", dir=1, ignore=""){
   let lines = Object.keys(this.pagedata.lines);
   let found = false;
   console.log(start)
@@ -1108,7 +1108,9 @@ Nashi.prototype.jump_comment = function(start="", dir=1){
   if (dir==-1){lines.reverse();}
   console.log("start search at " + start);
   for (var ix=lines.indexOf(start)+1; ix<lines.length; ix++){
-    if (this.pagedata.lines[lines[ix]].comments != ""){
+    if (this.pagedata.lines[lines[ix]].comments != ""
+	&& !(ignore !== "" && this.pagedata.lines[lines[ix]].comments.includes(ignore))
+		){
       this.openLine($("#"+lines[ix], this.editor.svg0)[0]);
       this.editor.inputbox.toggle(true);
       window.scrollTo(0, this.editor.inputbox.offset().top - 150);
@@ -1119,7 +1121,7 @@ Nashi.prototype.jump_comment = function(start="", dir=1){
   }
   if (!found){
 		$("#searchmessage").text("Searching on other pages...");
-		data = {dir: dir}
+		data = {dir: dir, ignore: ignore}
     data = JSON.stringify(data);
     $.ajax({
 			url: this.pagedata.page + '/comments_jump',
@@ -1141,7 +1143,7 @@ Nashi.prototype.jump_comment = function(start="", dir=1){
 };
 
 
-Nashi.prototype.search = function(st="", start="", dir=1, comments=false){
+Nashi.prototype.search = function(st="", start="", dir=1, comments=false, ignore=""){
   let lines = Object.keys(this.pagedata.lines);
   let found = false;
   console.log(start)
@@ -1150,7 +1152,9 @@ Nashi.prototype.search = function(st="", start="", dir=1, comments=false){
   if (dir==-1){lines.reverse();}
   console.log("start search at " + start);
 	for (var ix=lines.indexOf(start)+1; ix<lines.length; ix++){
-		if (this.pagedata.lines[lines[ix]].text.content.includes(st)){
+		if (this.pagedata.lines[lines[ix]].text.content.includes(st)
+			&& !(ignore !== "" && this.pagedata.lines[lines[ix]].text.content.includes(ignore))
+			){
 			this.openLine($("#"+lines[ix], this.editor.svg0)[0]);
       this.editor.inputbox.toggle(true);
       window.scrollTo(0, this.editor.inputbox.offset().top - 150);
@@ -1158,7 +1162,8 @@ Nashi.prototype.search = function(st="", start="", dir=1, comments=false){
 			$("#searchmessage").text("");
 			break;
 		}
-		if (comments && this.pagedata.lines[lines[ix]].comments.includes(st)){
+		if (comments && this.pagedata.lines[lines[ix]].comments.includes(st)
+		&& !(ignore !== "" && this.pagedata.lines[lines[ix]].comments.includes(ignore))){
       this.openLine($("#"+lines[ix], this.editor.svg0)[0]);
       this.editor.inputbox.toggle(true);
       window.scrollTo(0, this.editor.inputbox.offset().top - 150);
@@ -1169,7 +1174,7 @@ Nashi.prototype.search = function(st="", start="", dir=1, comments=false){
 	}
 	if (!found){
 		$("#searchmessage").text("Searching on other pages...");
-		data = {searchterm: st, dir: dir, comments: comments}
+		data = {searchterm: st, dir: dir, comments: comments, ignore: ignore}
     data = JSON.stringify(data);
     $.ajax({
 			url: this.pagedata.page + '/search_continue',

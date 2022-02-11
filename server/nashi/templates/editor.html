@@ -121,6 +121,11 @@
           </div>
         </li>
         <li>
+          <div class="form-ignore">
+            <input type="text" name="ignoreterm" id="ignoreterm" class="form-control" data-toggle="tooltip" data-html="true" placeholder="Ignore" style="font-family:Andron Scriptor Web;">
+          </div>
+        </li>
+        <li>
           <span id="searchmessage"></span>
         </li>
         </ul>
@@ -175,7 +180,7 @@
       } else {
         var lid = "";
       }
-      nashi.jump_comment(start=lid, dir=-1);
+      nashi.jump_comment(start=lid, dir=-1, ignore=$("#ignoreterm").val());
     });
 
     $("#btn_comment_forward").on("click",function(e){
@@ -184,7 +189,7 @@
       } else {
         var lid = "";
       }
-			nashi.jump_comment(start=lid, dir=1)
+			nashi.jump_comment(start=lid, dir=1, ignore=$("#ignoreterm").val());
     });
 
 		$("#btn_search_backward").on("click",function(e){
@@ -196,7 +201,8 @@
 			nashi.search(st=$("#searchterm").val(),
 						       start=lid,
 						       dir=-1,
-						       comments=$("#chk_search_comments").is(":checked"));
+						       comments=$("#chk_search_comments").is(":checked"),
+                   ignore=$("#ignoreterm").val());
 		});
 
 		$("#btn_search_forward").on("click",function(e){
@@ -208,7 +214,9 @@
 			nashi.search(st=$("#searchterm").val(),
 						       start=lid,
 						       dir=1,
-						       comments=$("#chk_search_comments").is(":checked"));
+						       comments=$("#chk_search_comments").is(":checked"),
+                   ignore=$("#ignoreterm").val()
+                   );
 		});
 
 		$("#searchterm").on("keydown", function(evt){
@@ -226,7 +234,8 @@
 					nashi.search(st=$("#searchterm").val(),
 								       start=lid,
 								       dir=1,
-								       comments=$("#chk_search_comments").is(":checked"));
+								       comments=$("#chk_search_comments").is(":checked"),
+                      ignore=$("#ignoreterm").val());
 			}
 
       else if (e.code == "Insert" && e.shiftKey){

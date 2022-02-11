@@ -550,6 +550,7 @@ def comments_jump(bookname, pagename):
     pnames = sorted([p.name for p in book.pages])
     data = request.json
     reverse = data["dir"] < 0
+    ignore = data.get("ignore", "")
     if reverse:
         pnames.reverse()
     pnames = pnames[pnames.index(pagename) + 1:]
@@ -562,7 +563,8 @@ def comments_jump(bookname, pagename):
         if reverse:
             found.reverse()
         for textline in found:
-            if "comments" in textline.attrib and textline.attrib["comments"]:
+            if "comments" in textline.attrib and textline.attrib["comments"] \
+                and not (len(ignore) and ignore in textline.attrib.get("comments")):
                 result["page"] = p
                 result["line"] = textline.attrib["id"]
                 break
@@ -579,6 +581,7 @@ def search_continue(bookname, pagename):
     data = request.json
     reverse = data["dir"] < 0
     searchterm = data["searchterm"]
+    ignore = data.get("ignore", "")
     if reverse:
         pnames.reverse()
     pnames = pnames[pnames.index(pagename) + 1:]
@@ -601,7 +604,8 @@ def search_continue(bookname, pagename):
             comm = ""
             if data["comments"] and "comments" in textline.attrib:
                 comm = textline.attrib["comments"]
-            if searchterm in textcontent or searchterm in comm:
+            if (searchterm in textcontent or searchterm in comm) \
+                and not (len(ignore) and (ignore in textcontent or ignore in comm)):
                 result["page"] = p
                 result["line"] = textline.attrib["id"]
                 break
