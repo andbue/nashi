@@ -317,13 +317,11 @@ def textsearch(bookname):
                                            .format(layer), namespaces=ns)
                      if t.getparent().attrib["comments"]]
             filter = data.get("filter", False)
-            if filter == "#F":
-                found = [t for t in found if t.getparent().attrib["comments"]
-                                              .startswith("#F")]
-            elif filter == "~#F":
-                found = [t for t in found if not t.getparent()
-                                                  .attrib["comments"]
-                                                  .startswith("#F")]
+            if filter:
+                if filter.startswith("~"):
+                    found = [t for t in found if not filter[1:] in t.getparent().attrib["comments"]]
+                else:
+                    found = [t for t in found if filter in t.getparent().attrib["comments"]]
             for o in found:
                 text = o.xpath('./ns:Unicode/text()', namespaces=ns)
                 text = str(text[0]) if text else ""
