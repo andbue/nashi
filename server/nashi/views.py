@@ -319,9 +319,9 @@ def textsearch(bookname):
             filter = data.get("filter", False)
             if filter:
                 if filter.startswith("~"):
-                    found = [t for t in found if not filter[1:] in t.getparent().attrib["comments"]]
+                    found = [t for t in found if not t.getparent().attrib["comments"].startswith(filter[1:])]
                 else:
-                    found = [t for t in found if filter in t.getparent().attrib["comments"]]
+                    found = [t for t in found if t.getparent().attrib["comments"].startswith(filter)]
             for o in found:
                 text = o.xpath('./ns:Unicode/text()', namespaces=ns)
                 text = str(text[0]) if text else ""

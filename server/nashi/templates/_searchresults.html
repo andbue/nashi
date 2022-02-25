@@ -24,7 +24,7 @@ Select
 
         <td class="text">
           {% if r[3] %}
-          <span class="comment" style="background:{% if r[3].startswith('#F') %}lightgreen{% elif r[3].startswith('#S') %}lightcoral{% else %}yellow{% endif %}">
+          <span class="comment" style="background:{% if r[3].startswith('#F') %}lightgreen{% elif r[3].startswith('#S') %}lightcoral{% elif r[3].startswith('#M') %}mediumpurple{% else %}yellow{% endif %}">
             <span class="glyphicon glyphicon-paperclip commentlabel"></span>
             <span class="commentString" contenteditable="true">{{r[3]|safe}}</span>
           </span>
