@@ -50,7 +50,7 @@
 <div class="container" role="main">
 
   <div class="jumbotron" style="margin-top:15px;padding:20px;">
-    This is nasḫī, a tool for editing transcriptions of scanned texts. Many functions are still work in progress.
+    This is nasḫī, a tool for editing transcriptions of scanned texts. {% if archive %}Return to <a href='{{ url_for("index")}}'>library</a>.{% else %}Find more books in the <a href='{{ url_for("index")}}?archive'>archive</a>.{% endif %}
   </div>
 
   {% with messages = get_flashed_messages() %}
@@ -129,6 +129,7 @@
               <li class="divider" role="separator"></li>
               <li><a href="{{ url_for('getzip', bookname=b) }}">Download PageXML.zip</a></li>
               <li class="divider" role="separator"></li>
+              <li><a href="#" onclick="archive_book('{{ url_for("libedit", bookname=b, action="toggle_archive") }}', '{{b}}')">{% if books[b]['archive'] %}Return to library{% else %}Archive{% endif %}</a></li>
               <li><a href="#" onclick="delete_book('{{ url_for("libedit", bookname=b, action="delete") }}', '{{b}}')">Delete</a></li>
             </ul>
           </div>
@@ -167,6 +168,16 @@
           }
         });
       }
+    }
+
+    function archive_book(url, name) {
+        $.ajax({
+          url: url,
+          contentType: 'application/json;charset=UTF-8',
+          success: function(data) {
+            location.reload();
+          }
+        });
     }
 
     function copy_to_larex(url, name) {

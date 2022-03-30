@@ -52,6 +52,7 @@ class Book(Base):
     ocrpid = Column(String(80), unique=True)
     no_pages_total = Column(Integer, default=0)
     access = Column(Integer, ForeignKey('user.id'))
+    archive = Column(Boolean(), default=False)
     pages = relationship("Page", backref="book")
     models = relationship("OCRModel", backref="book")
 

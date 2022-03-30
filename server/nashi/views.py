@@ -29,8 +29,9 @@ from nashi.image import getsnippet
 @app.route('/')
 @login_required
 def index():
+    archive = 'archive' in request.args
     books = {}
-    for book in Book.query.all():
+    for book in Book.query.filter_by(archive=archive).all():
         if current_user.is_anonymous:
             owned = 0
         elif current_user.id == book.access:
@@ -48,10 +49,11 @@ def index():
                 "no_lines_gt": sum([p.no_lines_gt for p in book.pages]),
                 "no_lines_ocr": sum([p.no_lines_ocr for p in book.pages]),
                 "ocrstatus": ocrstatus,
+                "archive": book.archive,
                 "owned": owned
                 }
 
-    return render_template('index.html', books=books)
+    return render_template('index.html', books=books, archive=archive)
 
 
 @app.route('/_library/<action>', methods=['POST', 'GET'])
@@ -96,6 +98,11 @@ def libedit(bookname, action=""):
 
     if action == "delete":
         db_session.delete(book)
+        db_session.commit()
+        return jsonify(success=1)
+
+    if action == "toggle_archive":
+        book.archive = not book.archive
         db_session.commit()
         return jsonify(success=1)
 
