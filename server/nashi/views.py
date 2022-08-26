@@ -552,25 +552,29 @@ def getpng(bookname, file):
 @login_required
 def comments_jump(bookname, pagename):
     book = Book.query.filter_by(name=bookname).one()
-    pnames = sorted([p.name for p in book.pages])
+    pages = sorted(book.pages, key=lambda p: p.name)
     data = request.json
     reverse = data["dir"] < 0
     ignore = data.get("ignore", "")
     if reverse:
-        pnames.reverse()
-    pnames = pnames[pnames.index(pagename) + 1:]
+        pages.reverse()
+    thispage = None
+    for p in pages:
+        if p.name == pagename:
+            thispage = p
+            break
+    pages = pages[pages.index(thispage) + 1:]
     result = {"page": "", "line": ""}
-    for p in pnames:
-        page = Page.query.filter_by(book_id=book.id, name=p).one()
+    for page in pages:
         root = etree.fromstring(page.data)
         ns = {"ns": root.nsmap[None]}
-        found = root.xpath('//ns:TextLine', namespaces=ns)
+        found = root.findall('.//ns:TextLine[@comments]', namespaces=ns)
         if reverse:
             found.reverse()
         for textline in found:
-            if "comments" in textline.attrib and textline.attrib["comments"] \
+            if textline.attrib["comments"] \
                 and not (len(ignore) and ignore in textline.attrib.get("comments")):
-                result["page"] = p
+                result["page"] = page.name
                 result["line"] = textline.attrib["id"]
                 break
         if result["page"]:
