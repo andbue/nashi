@@ -582,24 +582,28 @@ def comments_jump(bookname, pagename):
 @login_required
 def search_continue(bookname, pagename):
     book = Book.query.filter_by(name=bookname).one()
-    pnames = sorted([p.name for p in book.pages])
+    pages = sorted(book.pages, key=lambda p: p.name)
     data = request.json
     reverse = data["dir"] < 0
     searchterm = data["searchterm"]
     ignore = data.get("ignore", "")
     if reverse:
-        pnames.reverse()
-    pnames = pnames[pnames.index(pagename) + 1:]
+        pages.reverse()
+    thispage = None
+    for p in pages:
+        if p.name == pagename:
+            thispage = p
+            break
+    pages = pages[pages.index(thispage) + 1:]
     result = {"page": "", "line": ""}
-    for p in pnames:
-        page = Page.query.filter_by(book_id=book.id, name=p).one()
+    for page in pages:
         root = etree.fromstring(page.data)
         ns = {"ns": root.nsmap[None]}
-        found = root.xpath('//ns:TextLine', namespaces=ns)
+        found = root.findall('.//ns:TextLine', namespaces=ns)
         if reverse:
             found.reverse()
         for textline in found:
-            indz = textline.xpath('./ns:TextEquiv/@index', namespaces=ns)
+            indz = [te.attrib.get('index') for te in textline.findall('./ns:TextEquiv[@index]', namespaces=ns) if te is not None]
             lowestindex = min(indz) if indz else ""
             textcontent = textline.find(
                 './ns:TextEquiv[@index="{}"]/ns:Unicode'.format(lowestindex),
@@ -611,7 +615,7 @@ def search_continue(bookname, pagename):
                 comm = textline.attrib["comments"]
             if (searchterm in textcontent or searchterm in comm) \
                 and not (len(ignore) and (ignore in textcontent or ignore in comm)):
-                result["page"] = p
+                result["page"] = page.name
                 result["line"] = textline.attrib["id"]
                 break
         if result["page"]:
