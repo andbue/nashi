@@ -228,7 +228,7 @@ def textedit(bookname):
 @app.route('/books/<bookname>/textlayers.html', methods=['GET', 'POST'])
 @login_required
 def textlayers(bookname):
-    data = request.get_json()
+    data = request.get_json(silent=True)
     b = Book.query.filter_by(name=bookname).one()
 
     if request.method == "GET":

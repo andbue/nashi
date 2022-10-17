@@ -77,7 +77,7 @@ def upload_pagexml(file):
 
 def getlayers(book):
     layers = set([])
-    for p in Page.query.filter_by(book_id=book.id):
+    for p in book.pages:
         root = etree.fromstring(p.data)
         ns = {"ns": root.nsmap[None]}
         nl = set(root.xpath('//ns:TextEquiv/@index', namespaces=ns))
