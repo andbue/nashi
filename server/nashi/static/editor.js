@@ -435,8 +435,8 @@ Nashi.prototype.saveCommentLine = function(){
       // saving already done in savetext()
       this.editor.commentline.data("dontsave", false);
   } else {
-    let content = $("<div>"+this.editor.commentline.html().replace("<br>", "\n")+"</div>")
-                  .text().replace("\n", "<br>")
+    let content = $("<div>"+this.editor.commentline.html().replaceAll("<br>", "\n").trim()+"</div>")
+                  .text().replaceAll("\n", "<br>")
     if (this.pagedata.lines[cur].comments != content){
       this.pagedata.lines[cur].comments = content;
 	    var tgl = content ? true : false;

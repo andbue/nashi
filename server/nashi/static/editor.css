@@ -53,6 +53,7 @@ line.linehandle:hover {cursor:copy;}
 	white-space:nowrap;
 	padding-left:1px;
 	padding-right:1px;
+	outline: 0px;
 }
 #commentline {
 	min-height: 1.25em;
