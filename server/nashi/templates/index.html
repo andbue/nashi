@@ -123,8 +123,8 @@
               <li class="divider" role="separator"></li>
               <li><a href="{{ url_for('ownership', bookname=b) }}">{% if books[b]['owned'] == 1 %}Return ownership{% else %}Claim ownership{% endif %}</a></li>
               <li class="divider" role="separator"></li>
-              <li><a href="{{ url_for('larexredir', bookname=b) }}">Segment in LAREX</a></li>
-              <li><a href="#" onclick="copy_to_larex('{{ url_for("libedit", bookname=b, action="copy_to_larex") }}', '{{b}}')">Copy to LAREX</a></li>
+	      <li><a href="#" onclick="open_in_larex('{{ url_for("larexfiles", bookname=b) }}', '{{b}}')">Segment in LAREX</a></li>
+	      <li><a href="#" onclick="copy_to_larex('{{ url_for("libedit", bookname=b, action="copy_to_larex") }}', '{{b}}')">Copy to LAREX</a></li>
               <li><a href="#" onclick="copy_from_larex('{{ url_for("libedit", bookname=b, action="select_from_larex") }}', '{{b}}')">Import from LAREX</a></li>
               <li class="divider" role="separator"></li>
               <li><a href="{{ url_for('getzip', bookname=b) }}">Download PageXML.zip</a></li>
@@ -189,6 +189,46 @@
         }
       });
     }
+
+
+    function open_in_larex(url, name) {
+        $.ajax({ 
+            url: url, 
+            success: function (data) {
+                if (data.files.length == 0) {
+                    $(".jumbotron").after(`<div id="importmessage" class="alert alert-warning" role="alert">No image files found – is the book available in LAREX?</div>`);
+                } else {
+                    const fileMap = JSON.parse('{}');
+                    const mimeMap = JSON.parse('{}');
+                    data.files.forEach((f) => {
+                        let page = encodeURIComponent(f[0]);
+                        let fname = encodeURIComponent(data.filePath+"/"+f[1]);
+                        fileMap[page] = [fname];
+                        mimeMap[fname] = 'image/png';
+                    });
+                    console.log(fileMap);
+                    console.log(mimeMap);
+                    $.ajax({
+                        url : data.larexUrl+"directLibrary",
+                        type: "POST",
+                        data: { "fileMap" : JSON.stringify(fileMap),
+                                "mimeMap" : JSON.stringify(mimeMap),
+                                "metsFilePath" : JSON.stringify(data.filePath),
+                                "customFlag" : JSON.stringify(false)},
+                        async : false,
+                        target : '_self',
+                        success : function(d) {
+                            console.log("Direct request successful!");
+                            window.open(data.larexUrl);
+                        }
+                    });
+
+                }
+            } 
+        });
+    }
+	
+
 
     function selectCheckboxes(choice) {
       switch (choice) {

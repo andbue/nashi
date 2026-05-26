@@ -764,6 +764,15 @@ def bootstrapexample():
     return render_template('bootstrapexample.html')
 
 
+@app.route('/larexfiles/<bookname>')
+@login_required
+def larexfiles(bookname):
+    file_path = app.config["LAREX_DIR"] + "/" + bookname
+    imgs = sorted([path.basename(i) for i in glob(file_path + "/*.png")])
+    names_and_imgs = [[path.splitext(i)[0], i] for i in imgs]
+    return jsonify(files=names_and_imgs, filePath=file_path.replace("//", "/"), larexUrl=app.config['LAREX_URL_CLIENT'])
+    
+
 @app.route('/larexredir/<bookname>')
 @login_required
 def larexredir(bookname):
