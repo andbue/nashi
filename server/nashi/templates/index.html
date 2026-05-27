@@ -192,6 +192,8 @@
 
 
     function open_in_larex(url, name) {
+        var win = window.open("", "_blank");
+        win.blur();
         $.ajax({ 
             url: url, 
             success: function (data) {
@@ -206,28 +208,27 @@
                         fileMap[page] = [fname];
                         mimeMap[fname] = 'image/png';
                     });
-                    console.log(fileMap);
-                    console.log(mimeMap);
-                    $.ajax({
-                        url : data.larexUrl+"directLibrary",
-                        type: "POST",
-                        data: { "fileMap" : JSON.stringify(fileMap),
-                                "mimeMap" : JSON.stringify(mimeMap),
-                                "metsFilePath" : JSON.stringify(data.filePath),
-                                "customFlag" : JSON.stringify(false)},
-                        async : false,
-                        target : '_self',
-                        success : function(d) {
-                            console.log("Direct request successful!");
-                            window.open(data.larexUrl);
-                        }
-                    });
 
+                    var form = win.document.createElement("form");
+                    form.method = "POST";
+                    form.action = data.larexUrl+"directLibrary";
+                    function add_to_form(name, value){
+                        let inp = win.document.createElement("input");
+                        inp.name = name;
+                        inp.value = value;
+                        form.appendChild(inp);
+                    }
+                    add_to_form("fileMap", JSON.stringify(fileMap));
+                    add_to_form("mimeMap", JSON.stringify(mimeMap));
+                    add_to_form("metsFilePath", JSON.stringify(data.filePath));
+                    add_to_form("customFlag", JSON.stringify(false));
+                    win.document.body.appendChild(form);
+                    form.submit();
+                    win.focus();
                 }
             } 
         });
-    }
-	
+    }	
 
 
     function selectCheckboxes(choice) {
